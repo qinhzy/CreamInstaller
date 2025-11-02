@@ -1101,4 +1101,10 @@ internal sealed partial class SelectForm : CustomForm
 
     private void OnSortCheckBoxChanged(object sender, EventArgs e)
         => selectionTreeView.TreeViewNodeSorter = sortCheckBox.Checked ? PlatformIdComparer.NodeText : PlatformIdComparer.NodeName;
+
+    private void OnGradeCalculator(object sender, EventArgs e)
+    {
+        using GradeCalculatorForm gradeCalculatorForm = new();
+        gradeCalculatorForm.ShowDialog(this);
+    }
 }

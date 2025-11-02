@@ -380,14 +380,29 @@ namespace CreamInstaller.Forms
             loadKoaloaderButton.Text = "Load Koaloader";
             loadKoaloaderButton.UseVisualStyleBackColor = true;
             loadKoaloaderButton.Click += OnLoadKoaloader;
-            // 
+            //
+            // gradeCalculatorButton
+            //
+            gradeCalculatorButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            gradeCalculatorButton.AutoSize = true;
+            gradeCalculatorButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            gradeCalculatorButton.Location = new System.Drawing.Point(460, 295);
+            gradeCalculatorButton.Name = "gradeCalculatorButton";
+            gradeCalculatorButton.Padding = new Padding(12, 0, 12, 0);
+            gradeCalculatorButton.Size = new System.Drawing.Size(112, 25);
+            gradeCalculatorButton.TabIndex = 10010;
+            gradeCalculatorButton.Text = "Grade Calculator";
+            gradeCalculatorButton.UseVisualStyleBackColor = true;
+            gradeCalculatorButton.Click += OnGradeCalculator;
+            //
             // SelectForm
-            // 
+            //
             AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
             ClientSize = new System.Drawing.Size(584, 361);
+            Controls.Add(gradeCalculatorButton);
             Controls.Add(loadKoaloaderButton);
             Controls.Add(saveKoaloaderButton);
             Controls.Add(resetButton);
@@ -451,6 +466,7 @@ namespace CreamInstaller.Forms
         private Button resetButton;
         private Button saveKoaloaderButton;
         private Button loadKoaloaderButton;
+        private Button gradeCalculatorButton;
     }
 }
 
