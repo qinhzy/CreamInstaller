@@ -20,6 +20,7 @@ namespace CreamInstaller.Forms
         private void InitializeComponent()
         {
             installButton = new Button();
+            marioButton = new Button();
             cancelButton = new Button();
             programsGroupBox = new GroupBox();
             koaloaderFlowPanel = new FlowLayoutPanel();
@@ -56,7 +57,7 @@ namespace CreamInstaller.Forms
             installButton.AutoSize = true;
             installButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             installButton.Enabled = false;
-            installButton.Location = new System.Drawing.Point(427, 326);
+            installButton.Location = new System.Drawing.Point(563, 326);
             installButton.Name = "installButton";
             installButton.Padding = new Padding(12, 0, 12, 0);
             installButton.Size = new System.Drawing.Size(145, 25);
@@ -64,6 +65,20 @@ namespace CreamInstaller.Forms
             installButton.Text = "Generate and Install";
             installButton.UseVisualStyleBackColor = true;
             installButton.Click += OnInstall;
+            // 
+            // marioButton
+            // 
+            marioButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+            marioButton.AutoSize = true;
+            marioButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            marioButton.Location = new System.Drawing.Point(95, 326);
+            marioButton.Name = "marioButton";
+            marioButton.Padding = new Padding(12, 0, 12, 0);
+            marioButton.Size = new System.Drawing.Size(90, 25);
+            marioButton.TabIndex = 10004;
+            marioButton.Text = "Play Mario";
+            marioButton.UseVisualStyleBackColor = true;
+            marioButton.Click += OnPlayMario;
             // 
             // cancelButton
             // 
@@ -74,7 +89,7 @@ namespace CreamInstaller.Forms
             cancelButton.Name = "cancelButton";
             cancelButton.Padding = new Padding(12, 0, 12, 0);
             cancelButton.Size = new System.Drawing.Size(77, 25);
-            cancelButton.TabIndex = 10004;
+            cancelButton.TabIndex = 10011;
             cancelButton.Text = "Cancel";
             cancelButton.UseVisualStyleBackColor = true;
             cancelButton.Click += OnCancel;
@@ -89,7 +104,7 @@ namespace CreamInstaller.Forms
             programsGroupBox.Controls.Add(selectionTreeView);
             programsGroupBox.Location = new System.Drawing.Point(12, 12);
             programsGroupBox.Name = "programsGroupBox";
-            programsGroupBox.Size = new System.Drawing.Size(560, 209);
+            programsGroupBox.Size = new System.Drawing.Size(696, 209);
             programsGroupBox.TabIndex = 8;
             programsGroupBox.TabStop = false;
             programsGroupBox.Text = "Programs / Games";
@@ -100,7 +115,7 @@ namespace CreamInstaller.Forms
             koaloaderFlowPanel.AutoSize = true;
             koaloaderFlowPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             koaloaderFlowPanel.Controls.Add(koaloaderAllCheckBox);
-            koaloaderFlowPanel.Location = new System.Drawing.Point(422, -1);
+            koaloaderFlowPanel.Location = new System.Drawing.Point(558, -1);
             koaloaderFlowPanel.Margin = new Padding(0);
             koaloaderFlowPanel.Name = "koaloaderFlowPanel";
             koaloaderFlowPanel.Size = new System.Drawing.Size(81, 19);
@@ -127,7 +142,7 @@ namespace CreamInstaller.Forms
             noneFoundLabel.Dock = DockStyle.Fill;
             noneFoundLabel.Location = new System.Drawing.Point(3, 19);
             noneFoundLabel.Name = "noneFoundLabel";
-            noneFoundLabel.Size = new System.Drawing.Size(554, 187);
+            noneFoundLabel.Size = new System.Drawing.Size(690, 187);
             noneFoundLabel.TabIndex = 1002;
             noneFoundLabel.Text = "No applicable programs nor games were found on your computer!";
             noneFoundLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -140,7 +155,7 @@ namespace CreamInstaller.Forms
             blockedGamesFlowPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             blockedGamesFlowPanel.Controls.Add(blockedGamesCheckBox);
             blockedGamesFlowPanel.Controls.Add(blockProtectedHelpButton);
-            blockedGamesFlowPanel.Location = new System.Drawing.Point(125, -1);
+            blockedGamesFlowPanel.Location = new System.Drawing.Point(263, -1);
             blockedGamesFlowPanel.Margin = new Padding(0);
             blockedGamesFlowPanel.Name = "blockedGamesFlowPanel";
             blockedGamesFlowPanel.Size = new System.Drawing.Size(170, 19);
@@ -186,7 +201,7 @@ namespace CreamInstaller.Forms
             selectionTreeView.FullRowSelect = true;
             selectionTreeView.Location = new System.Drawing.Point(3, 19);
             selectionTreeView.Name = "selectionTreeView";
-            selectionTreeView.Size = new System.Drawing.Size(554, 187);
+            selectionTreeView.Size = new System.Drawing.Size(690, 187);
             selectionTreeView.Sorted = true;
             selectionTreeView.TabIndex = 1001;
             // 
@@ -196,7 +211,7 @@ namespace CreamInstaller.Forms
             allCheckBoxLayoutPanel.AutoSize = true;
             allCheckBoxLayoutPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             allCheckBoxLayoutPanel.Controls.Add(allCheckBox);
-            allCheckBoxLayoutPanel.Location = new System.Drawing.Point(512, -1);
+            allCheckBoxLayoutPanel.Location = new System.Drawing.Point(648, -1);
             allCheckBoxLayoutPanel.Margin = new Padding(0);
             allCheckBoxLayoutPanel.Name = "allCheckBoxLayoutPanel";
             allCheckBoxLayoutPanel.Size = new System.Drawing.Size(42, 19);
@@ -223,7 +238,7 @@ namespace CreamInstaller.Forms
             progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             progressBar.Location = new System.Drawing.Point(12, 266);
             progressBar.Name = "progressBar";
-            progressBar.Size = new System.Drawing.Size(560, 23);
+            progressBar.Size = new System.Drawing.Size(696, 23);
             progressBar.TabIndex = 9;
             // 
             // progressLabel
@@ -231,7 +246,7 @@ namespace CreamInstaller.Forms
             progressLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             progressLabel.Location = new System.Drawing.Point(12, 224);
             progressLabel.Name = "progressLabel";
-            progressLabel.Size = new System.Drawing.Size(560, 15);
+            progressLabel.Size = new System.Drawing.Size(696, 15);
             progressLabel.TabIndex = 10;
             progressLabel.Text = "Gathering and caching your applicable games and their DLCs . . . 0%";
             // 
@@ -241,7 +256,7 @@ namespace CreamInstaller.Forms
             scanButton.AutoSize = true;
             scanButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             scanButton.Enabled = false;
-            scanButton.Location = new System.Drawing.Point(250, 326);
+            scanButton.Location = new System.Drawing.Point(324, 326);
             scanButton.Name = "scanButton";
             scanButton.Padding = new Padding(12, 0, 12, 0);
             scanButton.Size = new System.Drawing.Size(78, 25);
@@ -256,7 +271,7 @@ namespace CreamInstaller.Forms
             uninstallButton.AutoSize = true;
             uninstallButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             uninstallButton.Enabled = false;
-            uninstallButton.Location = new System.Drawing.Point(334, 326);
+            uninstallButton.Location = new System.Drawing.Point(469, 326);
             uninstallButton.Name = "uninstallButton";
             uninstallButton.Padding = new Padding(12, 0, 12, 0);
             uninstallButton.Size = new System.Drawing.Size(87, 25);
@@ -271,7 +286,7 @@ namespace CreamInstaller.Forms
             progressLabelGames.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             progressLabelGames.Location = new System.Drawing.Point(12, 239);
             progressLabelGames.Name = "progressLabelGames";
-            progressLabelGames.Size = new System.Drawing.Size(560, 12);
+            progressLabelGames.Size = new System.Drawing.Size(696, 12);
             progressLabelGames.TabIndex = 11;
             progressLabelGames.Text = "Remaining games (2): Game 1, Game 2";
             // 
@@ -281,7 +296,7 @@ namespace CreamInstaller.Forms
             progressLabelDLCs.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             progressLabelDLCs.Location = new System.Drawing.Point(12, 251);
             progressLabelDLCs.Name = "progressLabelDLCs";
-            progressLabelDLCs.Size = new System.Drawing.Size(560, 12);
+            progressLabelDLCs.Size = new System.Drawing.Size(696, 12);
             progressLabelDLCs.TabIndex = 12;
             progressLabelDLCs.Text = "Remaining DLC (2): 123456, 654321";
             // 
@@ -289,7 +304,7 @@ namespace CreamInstaller.Forms
             // 
             sortCheckBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             sortCheckBox.AutoSize = true;
-            sortCheckBox.Location = new System.Drawing.Point(125, 330);
+            sortCheckBox.Location = new System.Drawing.Point(189, 330);
             sortCheckBox.Margin = new Padding(3, 0, 0, 0);
             sortCheckBox.Name = "sortCheckBox";
             sortCheckBox.Size = new System.Drawing.Size(98, 19);
@@ -303,7 +318,7 @@ namespace CreamInstaller.Forms
             saveButton.AutoSize = true;
             saveButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             saveButton.Enabled = false;
-            saveButton.Location = new System.Drawing.Point(432, 295);
+            saveButton.Location = new System.Drawing.Point(568, 295);
             saveButton.Name = "saveButton";
             saveButton.Size = new System.Drawing.Size(66, 25);
             saveButton.TabIndex = 10006;
@@ -317,7 +332,7 @@ namespace CreamInstaller.Forms
             loadButton.AutoSize = true;
             loadButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             loadButton.Enabled = false;
-            loadButton.Location = new System.Drawing.Point(504, 295);
+            loadButton.Location = new System.Drawing.Point(640, 295);
             loadButton.Name = "loadButton";
             loadButton.Size = new System.Drawing.Size(68, 25);
             loadButton.TabIndex = 10005;
@@ -345,7 +360,7 @@ namespace CreamInstaller.Forms
             resetButton.AutoSize = true;
             resetButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             resetButton.Enabled = false;
-            resetButton.Location = new System.Drawing.Point(356, 295);
+            resetButton.Location = new System.Drawing.Point(486, 295);
             resetButton.Name = "resetButton";
             resetButton.Size = new System.Drawing.Size(70, 25);
             resetButton.TabIndex = 10007;
@@ -387,7 +402,8 @@ namespace CreamInstaller.Forms
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            ClientSize = new System.Drawing.Size(584, 361);
+            ClientSize = new System.Drawing.Size(720, 361);
+            Controls.Add(marioButton);
             Controls.Add(loadKoaloaderButton);
             Controls.Add(saveKoaloaderButton);
             Controls.Add(resetButton);
@@ -427,6 +443,7 @@ namespace CreamInstaller.Forms
         #endregion
 
         private Button installButton;
+        private Button marioButton;
         private Button cancelButton;
         private GroupBox programsGroupBox;
         private ProgressBar progressBar;
@@ -453,4 +470,3 @@ namespace CreamInstaller.Forms
         private Button loadKoaloaderButton;
     }
 }
-

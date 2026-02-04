@@ -163,6 +163,9 @@
 		<Compile Update="Forms\InstallForm.cs">
 			<SubType>Form</SubType>
 		</Compile>
+		<Compile Update="Forms\MarioForm.cs">
+			<SubType>Form</SubType>
+		</Compile>
 		<Compile Update="Forms\SelectDialogForm.cs">
 			<SubType>Form</SubType>
 		</Compile>

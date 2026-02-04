@@ -33,6 +33,8 @@ internal sealed partial class SelectForm : CustomForm
 
     private List<(Platform platform, string id, string name)> programsToScan;
 
+    private MarioForm marioForm;
+
     private SelectForm()
     {
         InitializeComponent();
@@ -1101,4 +1103,15 @@ internal sealed partial class SelectForm : CustomForm
 
     private void OnSortCheckBoxChanged(object sender, EventArgs e)
         => selectionTreeView.TreeViewNodeSorter = sortCheckBox.Checked ? PlatformIdComparer.NodeText : PlatformIdComparer.NodeName;
+
+    private void OnPlayMario(object sender, EventArgs e)
+    {
+        if (marioForm is null || marioForm.IsDisposed)
+        {
+            marioForm = new(this);
+            marioForm.FormClosed += (_, _) => marioForm = null;
+        }
+        marioForm.Show();
+        marioForm.Focus();
+    }
 }
