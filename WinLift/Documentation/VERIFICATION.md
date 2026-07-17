@@ -43,10 +43,11 @@
 
 ## 三、CI 运行记录
 
-| 提交 | macOS job | Linux job |
+| 提交 | macOS job（macos-14 / arm64 / Swift 5.10） | Linux job（swift 6.0.3 / QEMU 8.2.2） |
 | --- | --- | --- |
-| `cba5b4a`（首个修复批次） | 失败：`swift test` 编译错误（Task 闭包隐式捕获可变 weak self ×3；可选参数误引用） | `swift test` 通过；QEMU 冒烟见后续运行 |
-| `3e2ac0e` 及之后 | 见最新一次运行 | 见最新一次运行 |
+| `cba5b4a` run #1 | 失败：`swift test` 编译错误（Task 闭包隐式捕获可变 weak self ×3；可选参数误引用） | `swift test` 20/20 通过；冒烟失败于 harness 的 select/缓冲读丢行 |
+| `3e2ac0e` run #2 | **通过**：`swift test` 20/20；`--verify` 构建 App、adhoc 签名、启动成功（"WinLift 已成功启动。"） | `swift test` 通过；冒烟仍是旧脚本，同上失败 |
+| `d6a6d8e` run #3 | **通过** | **通过**：`swift test` 20/20；冒烟输出"QMP 生命周期、pidfile、稀疏磁盘（表观 64 GiB/实占 0 MiB）、EDK2 渲染全部符合预期" |
 
 最新状态请以 GitHub Actions 页面为准：
 `https://github.com/qinhzy/CreamInstaller/actions/workflows/winlift.yml`
