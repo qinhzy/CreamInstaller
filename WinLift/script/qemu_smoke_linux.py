@@ -14,11 +14,12 @@ coreaudio→none——然后对真实的 qemu-system-aarch64 执行完整生命�
 
 import json
 import os
-import select
+import queue
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -84,21 +85,28 @@ def substitute_for_linux(args):
 
 
 class QMP:
+    """QMP over stdio。
+
+    用后台线程逐行搬运 stdout：select 与带缓冲的 readline 混用会在
+    QEMU 一次写出多行（如 return + 事件）时把后一行卡在用户态缓冲区里。
+    """
+
     def __init__(self, proc):
         self.proc = proc
+        self.lines = queue.Queue()
+        threading.Thread(target=self._pump, daemon=True).start()
+
+    def _pump(self):
+        for line in self.proc.stdout:
+            line = line.strip()
+            if line:
+                self.lines.put(line)
 
     def read(self, timeout=60):
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            ready, _, _ = select.select([self.proc.stdout], [], [], 0.5)
-            if ready:
-                line = self.proc.stdout.readline()
-                if not line:
-                    return None
-                line = line.strip()
-                if line:
-                    return json.loads(line)
-        return None
+        try:
+            return json.loads(self.lines.get(timeout=timeout))
+        except queue.Empty:
+            return None
 
     def command(self, name, timeout=60, **arguments):
         payload = {"execute": name}
