@@ -7,3 +7,4 @@ dist/
 *.raw
 *.qcow2
 *.winliftvm/
+__pycache__/
