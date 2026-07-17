@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import Combine
 import Darwin
@@ -37,11 +38,12 @@ final class AppModel: ObservableObject {
 
     init(
         store: VMFileStore = .live(),
-        runtime: QEMUProcessController = QEMUProcessController(),
+        runtime: QEMUProcessController? = nil,
         fileManager: FileManager = .default
     ) {
         self.store = store
-        self.runtime = runtime
+        // 不放进默认参数：@MainActor 隔离的默认参数值需要 Swift 5.10+。
+        self.runtime = runtime ?? QEMUProcessController()
         self.fileManager = fileManager
         provisioner = VMProvisioner(store: store, fileManager: fileManager)
 
@@ -203,3 +205,4 @@ final class AppModel: ObservableObject {
         try? fileManager.removeItem(at: pidURL)
     }
 }
+#endif

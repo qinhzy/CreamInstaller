@@ -10,7 +10,8 @@ let package = Package(
     ],
     products: [
         .library(name: "WinLiftCore", targets: ["WinLiftCore"]),
-        .executable(name: "WinLift", targets: ["WinLift"])
+        .executable(name: "WinLift", targets: ["WinLift"]),
+        .executable(name: "winlift-qemu-args", targets: ["QEMUArgsDump"])
     ],
     targets: [
         .target(
@@ -18,6 +19,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "WinLift",
+            dependencies: ["WinLiftCore"]
+        ),
+        .executableTarget(
+            name: "QEMUArgsDump",
             dependencies: ["WinLiftCore"]
         ),
         .testTarget(

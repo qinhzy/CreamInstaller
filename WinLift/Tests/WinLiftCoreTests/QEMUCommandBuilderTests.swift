@@ -35,6 +35,50 @@ final class QEMUCommandBuilderTests: XCTestCase {
         )
     }
 
+    func testNameUsesExplicitGuestKey() {
+        let arguments = makeArguments(attachInstaller: true)
+        XCTAssertEqual(value(after: "-name", in: arguments), "guest=Windows Test")
+    }
+
+    func testCommaInStoragePathIsEscapedInsideDriveArguments() {
+        let machine = VirtualMachine(
+            id: machineID,
+            name: "Windows Test",
+            cpuCount: 4,
+            memorySizeGiB: 8,
+            diskSizeGiB: 64,
+            installerISOPath: "/Users/test/ISO, drafts/Windows11_ARM64.iso",
+            attachInstaller: true
+        )
+        let layout = VMStorageLayout(rootURL: URL(fileURLWithPath: "/tmp/WinLift, Tests"))
+        let installation = QEMUInstallation(
+            executableURL: URL(fileURLWithPath: "/opt/homebrew/bin/qemu-system-aarch64"),
+            firmwareURL: URL(fileURLWithPath: "/opt/homebrew/share/qemu/edk2-aarch64-code.fd")
+        )
+
+        let arguments = QEMUCommandBuilder.arguments(
+            machine: machine,
+            layout: layout,
+            installation: installation
+        )
+
+        XCTAssertTrue(arguments.contains(where: {
+            $0.hasPrefix("if=none,id=systemdisk") && $0.contains("/tmp/WinLift,, Tests/")
+        }))
+        XCTAssertTrue(arguments.contains(where: {
+            $0.hasPrefix("if=none,id=installer") && $0.contains("/Users/test/ISO,, drafts/")
+        }))
+    }
+
+    func testPIDFileAndUUIDAreBoundToTheMachine() {
+        let arguments = makeArguments(attachInstaller: false)
+        XCTAssertEqual(value(after: "-uuid", in: arguments), machineID.uuidString)
+        XCTAssertEqual(
+            value(after: "-pidfile", in: arguments),
+            "/tmp/WinLift Tests/\(machineID.uuidString).winliftvm/qemu.pid"
+        )
+    }
+
     private func makeArguments(attachInstaller: Bool) -> [String] {
         let machine = VirtualMachine(
             id: machineID,

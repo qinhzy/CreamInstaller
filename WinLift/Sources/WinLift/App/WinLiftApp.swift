@@ -1,9 +1,12 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var runtimeIsActive: () -> Bool = { false }
+    // 闭包在主线程的 applicationShouldTerminate 中同步调用，
+    // 且需要读取 @MainActor 的运行时状态，因此必须标注 MainActor 隔离。
+    var runtimeIsActive: @MainActor () -> Bool = { false }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -72,3 +75,14 @@ struct WinLiftApp: App {
         }
     }
 }
+#else
+// WinLift 的图形界面只在 macOS 上可用。其他平台的构建只用于编译
+// WinLiftCore、运行测试和 CI 的 QEMU 冒烟脚本。
+@main
+enum WinLiftUnsupportedPlatformMain {
+    static func main() {
+        print("WinLift 的图形界面仅支持 macOS 14+（Apple Silicon）。")
+        print("当前平台构建仅用于 WinLiftCore 测试与 QEMU 参数验证。")
+    }
+}
+#endif

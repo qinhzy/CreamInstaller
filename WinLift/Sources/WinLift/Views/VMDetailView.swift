@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
 import WinLiftCore
@@ -306,3 +307,4 @@ private struct InstallerBanner: View {
         .background(.blue.opacity(0.09), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
+#endif

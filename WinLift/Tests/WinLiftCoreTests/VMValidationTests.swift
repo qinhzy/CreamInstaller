@@ -33,6 +33,48 @@ final class VMValidationTests: XCTestCase {
         }
     }
 
+    func testMemoryBelowMinimumIsRejected() {
+        var machine = makeMachine()
+        machine.memorySizeGiB = 2
+
+        XCTAssertThrowsError(try VMValidator.validate(machine, hostProcessorCount: 8)) { error in
+            XCTAssertEqual(
+                error as? VMValidationError,
+                .invalidMemorySize(allowed: VMValidator.memoryRange)
+            )
+        }
+    }
+
+    func testDiskBelowMinimumIsRejected() {
+        var machine = makeMachine()
+        machine.diskSizeGiB = 16
+
+        XCTAssertThrowsError(try VMValidator.validate(machine, hostProcessorCount: 8)) { error in
+            XCTAssertEqual(
+                error as? VMValidationError,
+                .invalidDiskSize(allowed: VMValidator.diskRange)
+            )
+        }
+    }
+
+    func testInstallerMustHaveISOExtension() {
+        var machine = makeMachine()
+        machine.installerISOPath = "/Users/test/Windows11_ARM64.img"
+
+        XCTAssertThrowsError(try VMValidator.validate(machine, hostProcessorCount: 8)) { error in
+            XCTAssertEqual(error as? VMValidationError, .invalidInstallerExtension)
+        }
+    }
+
+    func testControlCharactersInNameAreRejected() {
+        var machine = makeMachine()
+        machine.name = "Windows\u{07}11"
+
+        XCTAssertThrowsError(try VMValidator.validate(machine, hostProcessorCount: 8)) { error in
+            XCTAssertEqual(error as? VMValidationError, .invalidName)
+        }
+    }
+
     private func makeMachine() -> VirtualMachine {
         VirtualMachine(
             id: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,

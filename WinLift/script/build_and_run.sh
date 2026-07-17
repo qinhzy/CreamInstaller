@@ -87,10 +87,19 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
-    open_app
-    sleep 2
-    pgrep -x "$APP_NAME" >/dev/null
-    echo "$APP_NAME 已成功启动。"
+    if ! open_app; then
+      echo "open 启动失败，回退为直接运行 App 二进制。" >&2
+      nohup "$APP_BINARY" >/dev/null 2>&1 &
+    fi
+    for _ in $(seq 1 20); do
+      if pgrep -x "$APP_NAME" >/dev/null; then
+        echo "$APP_NAME 已成功启动。"
+        exit 0
+      fi
+      sleep 1
+    done
+    echo "验证失败：$APP_NAME 未在 20 秒内出现。" >&2
+    exit 1
     ;;
   *)
     echo "用法: $0 [run|--debug|--logs|--telemetry|--verify]" >&2

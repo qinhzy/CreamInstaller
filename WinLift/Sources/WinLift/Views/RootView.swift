@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import WinLiftCore
 
@@ -136,3 +137,4 @@ private struct SidebarMachineRow: View {
         }
     }
 }
+#endif

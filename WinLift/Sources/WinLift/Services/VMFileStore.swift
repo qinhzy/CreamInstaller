@@ -62,7 +62,9 @@ struct VMFileStore {
                 guard machine.schemaVersion <= VirtualMachine.currentSchemaVersion else {
                     throw VMStoreError.unsupportedSchema(machine.schemaVersion)
                 }
-                guard layout.bundleURL(for: machine.id).standardizedFileURL == bundleURL.standardizedFileURL else {
+                // 用 path 比较：URL 相等比较会区分目录 URL 的尾部斜杠。
+                guard layout.bundleURL(for: machine.id).standardizedFileURL.path
+                    == bundleURL.standardizedFileURL.path else {
                     throw VMStoreError.bundleIdentifierMismatch
                 }
                 machines.append(machine)

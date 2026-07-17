@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
@@ -144,3 +145,4 @@ struct CreateVMView: View {
         }
     }
 }
+#endif

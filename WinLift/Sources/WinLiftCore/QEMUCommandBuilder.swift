@@ -15,7 +15,8 @@ public enum QEMUCommandBuilder {
         let serial = "WINLIFT-" + String(serialSuffix)
 
         var result = [
-            "-name", escapedOptionValue(machine.name),
+            // 显式使用 guest= 键：裸值中的 '=' 会被 QEMU 当作未知子选项键。
+            "-name", "guest=" + escapedOptionValue(machine.name),
             "-machine", "virt,highmem=on,gic-version=3",
             "-accel", "hvf",
             "-cpu", "host",

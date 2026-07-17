@@ -1,0 +1,46 @@
+name: WinLift
+
+on:
+  push:
+    paths:
+      - 'WinLift/**'
+      - '.github/workflows/winlift.yml'
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: WinLift
+
+jobs:
+  macos:
+    name: macOS 14 Apple Silicon · swift test + app launch
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain and architecture
+        run: |
+          uname -m
+          swift --version
+      - name: swift test
+        run: swift test
+      - name: Build app bundle and verify launch
+        run: ./script/build_and_run.sh --verify
+      - name: Shut down app
+        if: always()
+        run: pkill -x WinLift || true
+
+  linux-core:
+    name: Linux · core tests + QEMU TCG smoke
+    runs-on: ubuntu-24.04
+    container: swift:6.0.3-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and firmware
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            qemu-system-arm qemu-efi-aarch64 python3
+      - name: swift test (WinLiftCore)
+        run: swift test
+      - name: QEMU smoke test with generated arguments
+        run: python3 script/qemu_smoke_linux.py

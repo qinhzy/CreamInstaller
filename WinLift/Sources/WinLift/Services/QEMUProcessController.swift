@@ -1,3 +1,4 @@
+#if os(macOS)
 import Combine
 import Foundation
 import WinLiftCore
@@ -32,6 +33,7 @@ final class QEMUProcessController: ObservableObject {
     private var standardError: Pipe?
     private var logHandle: FileHandle?
     private var runtimePIDURL: URL?
+    private var startupGraceTask: Task<Void, Never>?
     private var qmpCapabilitiesSent = false
     private var qmpGreetingBuffer = ""
     private var expectedTermination = false
@@ -98,7 +100,11 @@ final class QEMUProcessController: ObservableObject {
 
         qmpOutput.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            guard !data.isEmpty else {
+                // EOF：不摘除 handler 会让空数据回调持续触发。
+                handle.readabilityHandler = nil
+                return
+            }
             Task { @MainActor in
                 self?.consumeQMPOutput(data)
             }
@@ -106,7 +112,10 @@ final class QEMUProcessController: ObservableObject {
 
         standardError.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
-            guard !data.isEmpty else { return }
+            guard !data.isEmpty else {
+                handle.readabilityHandler = nil
+                return
+            }
             Task { @MainActor in
                 self?.consumeStandardError(data)
             }
@@ -129,9 +138,13 @@ final class QEMUProcessController: ObservableObject {
 
         // QMP normally sends its greeting immediately. If a QEMU build delays
         // that greeting, the VM is still considered running after this grace period.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self, self.process != nil, self.state == .starting else { return }
-            self.state = .running
+        startupGraceTask?.cancel()
+        startupGraceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled, let self else { return }
+            if self.process != nil, self.state == .starting {
+                self.state = .running
+            }
         }
 #endif
     }
@@ -244,6 +257,8 @@ final class QEMUProcessController: ObservableObject {
     }
 
     private func cleanUpPipesAndProcess() {
+        startupGraceTask?.cancel()
+        startupGraceTask = nil
         qmpOutput?.fileHandleForReading.readabilityHandler = nil
         standardError?.fileHandleForReading.readabilityHandler = nil
         try? qmpInput?.fileHandleForWriting.close()
@@ -266,3 +281,4 @@ final class QEMUProcessController: ObservableObject {
         expectedTermination = false
     }
 }
+#endif
