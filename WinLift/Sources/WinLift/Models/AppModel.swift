@@ -47,7 +47,7 @@ final class AppModel: ObservableObject {
         self.fileManager = fileManager
         provisioner = VMProvisioner(store: store, fileManager: fileManager)
 
-        runtime.objectWillChange
+        self.runtime.objectWillChange
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }

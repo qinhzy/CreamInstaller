@@ -42,6 +42,18 @@ brew install qemu
 swift test
 ```
 
+## 验证与调试工具
+
+- `swift run winlift-qemu-args --root <VM 根目录> --qemu <qemu 路径> --firmware <code.fd> [--iso <ISO>]`
+  输出 WinLift 实际用于启动 QEMU 的完整参数（每行一个），与应用共用同一份
+  `QEMUCommandBuilder`，便于排障和脚本验证。
+- `script/qemu_smoke_linux.py`（Linux/CI 专用）：用真实的 `qemu-system-aarch64` + EDK2
+  固件按上面生成的参数执行完整 QMP 生命周期冒烟测试，只替换 `hvf`/`cocoa`/`coreaudio`
+  三个 macOS 专属值，其余参数与 macOS 上完全一致。
+- 仓库根目录的 `.github/workflows/winlift.yml` 会在 macos-14（Apple Silicon）上运行
+  `swift test` 与 `./script/build_and_run.sh --verify`，并在 Linux 上运行核心测试与
+  QEMU 冒烟测试。实际执行记录见 `Documentation/VERIFICATION.md`。
+
 ## 安装 Windows
 
 1. 在 WinLift 中点“新建虚拟机”。

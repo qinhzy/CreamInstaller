@@ -105,7 +105,7 @@ final class QEMUProcessController: ObservableObject {
                 handle.readabilityHandler = nil
                 return
             }
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.consumeQMPOutput(data)
             }
         }
@@ -116,14 +116,14 @@ final class QEMUProcessController: ObservableObject {
                 handle.readabilityHandler = nil
                 return
             }
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.consumeStandardError(data)
             }
         }
 
         process.terminationHandler = { [weak self] terminatedProcess in
             let status = terminatedProcess.terminationStatus
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.handleTermination(status: status)
             }
         }
