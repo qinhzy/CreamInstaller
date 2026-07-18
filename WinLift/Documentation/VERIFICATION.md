@@ -55,6 +55,8 @@
 | `a4b5ba4` [run #14](https://github.com/qinhzy/CreamInstaller/actions/runs/29638722405)（本轮功能实现） | 失败：Swift 5.10 要求 `refreshInstallerMissingCache` 的闭包显式写 `self`；因此 App 构建、启动和截图均未执行 | **通过**：39/39 测试；QEMU/EDK2 冒烟通过 |
 | `a51264a` [run #15](https://github.com/qinhzy/CreamInstaller/actions/runs/29639800770)（修复 Swift 5.10 编译） | 失败：交互测试把内存固定改为 8 GiB，超过 runner 的实际主机内存上限；产品代码已编译，截图因测试失败未执行 | **通过**：39/39 测试；QEMU/EDK2 冒烟通过 |
 | `3c00a25` [run #16](https://github.com/qinhzy/CreamInstaller/actions/runs/29639851298)（最终验证） | **通过**：Swift 5.10/arm64，51/51 测试；`--verify` 构建、adhoc 签名并启动成功；artifact `winlift-ui-16`（174,605 字节）已下载检查，确为 WinLift 主窗口真实渲染 | **通过**：39/39 测试；真实 QEMU/EDK2 生命周期、ramfb 渲染、pidfile 和 64 GiB 稀疏磁盘全部通过 |
+| `f773b0d` [run #18](https://github.com/qinhzy/CreamInstaller/actions/runs/29640041472)（稳定截图时序） | **通过**：51/51 测试；`--verify` 通过；artifact `winlift-ui-18`（176,205 字节）已下载检查，主窗口完成渲染 | **通过**：39/39 测试；QEMU/EDK2 冒烟通过 |
+| `25a9d76` [run #19](https://github.com/qinhzy/CreamInstaller/actions/runs/29641847002)（并发与持久化加固） | **通过**：Swift 5.10/arm64，53/53 测试；后台 QEMU 体检、版本超时及异步原子 EFI 重置均编译/测试通过；`--verify` 通过；artifact `winlift-ui-19`（176,249 字节）已下载检查，主窗口真实渲染正常 | **通过**：Swift 6.0.3，41/41 测试；真实 QEMU/EDK2 生命周期、ramfb 渲染、pidfile 和 64 GiB 稀疏磁盘全部通过 |
 
 最新状态请以 GitHub Actions 页面为准：
 `https://github.com/qinhzy/CreamInstaller/actions/workflows/winlift.yml`
