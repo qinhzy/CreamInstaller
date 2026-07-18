@@ -392,7 +392,7 @@ public final class AppModel: ObservableObject {
     private func refreshInstallerMissingCache() {
         installerMissingMachineIDs = Set(
             machines.lazy
-                .filter { installerIsMissingOnDisk(for: $0) }
+                .filter { self.installerIsMissingOnDisk(for: $0) }
                 .map(\.id)
         )
     }
