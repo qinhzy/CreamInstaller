@@ -155,15 +155,16 @@ final class AppModelInteractionTests: XCTestCase {
 
         model.beginEditing(machine)
         var draft = try XCTUnwrap(model.editingDraft)
+        let editedMemoryGiB = max(4, min(8, model.hostResources.memoryGiB))
         draft.name = "改名后的机器"
         draft.cpuCount = 2
-        draft.memorySizeGiB = 8
+        draft.memorySizeGiB = editedMemoryGiB
         draft.diskSizeGiB = 96
 
         XCTAssertTrue(model.applyEdit(draft))
         let updated = try XCTUnwrap(model.machines.first)
         XCTAssertEqual(updated.name, "改名后的机器")
-        XCTAssertEqual(updated.memorySizeGiB, 8)
+        XCTAssertEqual(updated.memorySizeGiB, editedMemoryGiB)
         XCTAssertEqual(updated.diskSizeGiB, 96)
         XCTAssertEqual(try apparentDiskSize(of: updated), 96 << 30)
 
