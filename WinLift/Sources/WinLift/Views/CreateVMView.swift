@@ -1,4 +1,5 @@
 #if os(macOS)
+import Foundation
 import SwiftUI
 
 struct CreateVMView: View {
