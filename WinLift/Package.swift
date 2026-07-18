@@ -17,9 +17,13 @@ let package = Package(
         .target(
             name: "WinLiftCore"
         ),
+        .target(
+            name: "WinLiftAppCore",
+            dependencies: ["WinLiftCore"]
+        ),
         .executableTarget(
             name: "WinLift",
-            dependencies: ["WinLiftCore"]
+            dependencies: ["WinLiftCore", "WinLiftAppCore"]
         ),
         .executableTarget(
             name: "QEMUArgsDump",
@@ -28,6 +32,10 @@ let package = Package(
         .testTarget(
             name: "WinLiftCoreTests",
             dependencies: ["WinLiftCore"]
+        ),
+        .testTarget(
+            name: "WinLiftAppTests",
+            dependencies: ["WinLiftAppCore", "WinLiftCore"]
         )
     ]
 )

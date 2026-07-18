@@ -20,7 +20,7 @@ enum VMStoreError: LocalizedError {
     }
 }
 
-struct VMFileStore {
+public struct VMFileStore {
     let layout: VMStorageLayout
     private let fileManager: FileManager
 
@@ -29,7 +29,7 @@ struct VMFileStore {
         self.fileManager = fileManager
     }
 
-    static func live(fileManager: FileManager = .default) -> VMFileStore {
+    public static func live(fileManager: FileManager = .default) -> VMFileStore {
         let root = fileManager.homeDirectoryForCurrentUser
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("Application Support", isDirectory: true)

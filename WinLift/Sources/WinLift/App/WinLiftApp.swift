@@ -2,15 +2,20 @@
 import AppKit
 import Combine
 import SwiftUI
+import WinLiftAppCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     weak var model: AppModel?
 
     private var terminationWatcher: AnyCancellable?
+    private var terminationTimeoutTask: Task<Void, Never>?
     private var wantsGracefulShutdown = false
     private var shutdownRequestSent = false
     private var forceStopSent = false
+
+    /// 正常关机迟迟未完成时，隔这么久再次询问用户。
+    private static let terminationTimeout: UInt64 = 90_000_000_000
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -65,13 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.advanceTermination(model: model)
                 }
             }
+        scheduleTerminationTimeout(model: model)
     }
 
     private func advanceTermination(model: AppModel) {
         let runtime = model.runtime
 
         guard runtime.state.isActive else {
-            terminationWatcher = nil
+            finishTerminationWatchers()
             NSApp.reply(toApplicationShouldTerminate: true)
             return
         }
@@ -86,6 +92,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forceStopSent = true
             runtime.forceStop()
         }
+    }
+
+    private func scheduleTerminationTimeout(model: AppModel) {
+        terminationTimeoutTask?.cancel()
+        terminationTimeoutTask = Task { [weak self, weak model] in
+            try? await Task.sleep(nanoseconds: Self.terminationTimeout)
+            guard !Task.isCancelled, let self, let model else { return }
+            self.handleTerminationTimeout(model: model)
+        }
+    }
+
+    private func handleTerminationTimeout(model: AppModel) {
+        guard model.runtime.state.isActive else { return }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Windows 还没有完成关机"
+        alert.informativeText = """
+        可以继续等待；也可以强制停止并退出（可能损坏虚拟机磁盘），\
+        或者取消退出、回到 WinLift 继续使用。
+        """
+        alert.addButton(withTitle: "继续等待")
+        alert.addButton(withTitle: "取消退出")
+        alert.addButton(withTitle: "强制停止并退出")
+        if alert.buttons.count == 3 {
+            alert.buttons[2].hasDestructiveAction = true
+        }
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            scheduleTerminationTimeout(model: model)
+        case .alertThirdButtonReturn:
+            wantsGracefulShutdown = false
+            advanceTermination(model: model)
+            scheduleTerminationTimeout(model: model)
+        default:
+            cancelTermination()
+        }
+    }
+
+    private func cancelTermination() {
+        finishTerminationWatchers()
+        NSApp.reply(toApplicationShouldTerminate: false)
+    }
+
+    private func finishTerminationWatchers() {
+        terminationWatcher = nil
+        terminationTimeoutTask?.cancel()
+        terminationTimeoutTask = nil
     }
 }
 

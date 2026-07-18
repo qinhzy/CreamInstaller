@@ -1,6 +1,6 @@
 import Foundation
 
-enum VMRuntimeState: Equatable {
+public enum VMRuntimeState: Equatable {
     case stopped
     case starting
     case running
@@ -25,7 +25,7 @@ enum VMRuntimeState: Equatable {
         }
     }
 
-    var isActive: Bool {
+    public var isActive: Bool {
         switch self {
         case .stopped, .failed:
             return false

@@ -2,16 +2,16 @@
 import SwiftUI
 import WinLiftCore
 
-struct RootView: View {
+public struct RootView: View {
     @ObservedObject var model: AppModel
     @ObservedObject private var runtime: QEMUProcessController
 
-    init(model: AppModel) {
+    public init(model: AppModel) {
         self.model = model
         runtime = model.runtime
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationSplitView {
             List(selection: $model.selectedMachineID) {
                 Section("虚拟机") {

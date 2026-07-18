@@ -21,10 +21,10 @@ enum VMRuntimeError: LocalizedError {
 }
 
 @MainActor
-final class QEMUProcessController: ObservableObject {
+public final class QEMUProcessController: ObservableObject {
     @Published private(set) var activeMachineID: UUID?
     @Published private(set) var lastMachineID: UUID?
-    @Published private(set) var state: VMRuntimeState = .stopped
+    @Published public private(set) var state: VMRuntimeState = .stopped
     @Published private(set) var startedAt: Date?
     @Published private(set) var logText = ""
 
@@ -44,15 +44,15 @@ final class QEMUProcessController: ObservableObject {
         process == nil
     }
 
-    var canPause: Bool {
+    public var canPause: Bool {
         state == .running && qmpCapabilitiesSent
     }
 
-    var canResume: Bool {
+    public var canResume: Bool {
         state == .paused && qmpCapabilitiesSent
     }
 
-    var canRequestShutdown: Bool {
+    public var canRequestShutdown: Bool {
         (state == .running || state == .paused) && qmpCapabilitiesSent
     }
 
@@ -153,21 +153,21 @@ final class QEMUProcessController: ObservableObject {
 #endif
     }
 
-    func pause() {
+    public func pause() {
         guard canPause else { return }
         sendQMPCommand("stop")
         state = .paused
         appendLog("[WinLift] 已请求暂停虚拟机。\n")
     }
 
-    func resume() {
+    public func resume() {
         guard canResume else { return }
         sendQMPCommand("cont")
         state = .running
         appendLog("[WinLift] 已请求恢复虚拟机。\n")
     }
 
-    func requestShutdown() {
+    public func requestShutdown() {
         guard process != nil, canRequestShutdown else { return }
         if state == .paused {
             sendQMPCommand("cont")
@@ -178,7 +178,7 @@ final class QEMUProcessController: ObservableObject {
         appendLog("[WinLift] 已发送 ACPI 关机请求，请等待 Windows 正常退出。\n")
     }
 
-    func forceStop() {
+    public func forceStop() {
         guard let process else { return }
         expectedTermination = true
         appendLog("[WinLift] 正在强制终止 QEMU；未写入的数据可能丢失。\n")

@@ -36,10 +36,10 @@ struct HostResources {
 }
 
 @MainActor
-final class AppModel: ObservableObject {
+public final class AppModel: ObservableObject {
     @Published private(set) var machines: [VirtualMachine] = []
-    @Published var selectedMachineID: UUID?
-    @Published var isPresentingCreateVM = false
+    @Published public var selectedMachineID: UUID?
+    @Published public var isPresentingCreateVM = false
     @Published var editingDraft: VMEditDraft?
     @Published var machinePendingDeletion: VirtualMachine?
     @Published private(set) var isCreatingVM = false
@@ -49,13 +49,13 @@ final class AppModel: ObservableObject {
     @Published var noticeMessage: String?
 
     let hostResources = HostResources()
-    let runtime: QEMUProcessController
+    public let runtime: QEMUProcessController
     private let store: VMFileStore
     private let provisioner: VMProvisioner
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
 
-    init(
+    public init(
         store: VMFileStore = .live(),
         runtime: QEMUProcessController? = nil,
         fileManager: FileManager = .default
@@ -76,18 +76,18 @@ final class AppModel: ObservableObject {
         refreshQEMUInstallation()
     }
 
-    var selectedMachine: VirtualMachine? {
+    public var selectedMachine: VirtualMachine? {
         guard let selectedMachineID else { return nil }
         return machines.first(where: { $0.id == selectedMachineID })
     }
 
-    var canStartSelectedMachine: Bool {
+    public var canStartSelectedMachine: Bool {
         guard selectedMachine != nil else { return false }
         return runtime.canStart && qemuInstallation != nil
     }
 
     /// 编辑、删除、更换 ISO 等操作只允许在这台机器没有运行时执行。
-    var canModifySelectedMachine: Bool {
+    public var canModifySelectedMachine: Bool {
         guard let machine = selectedMachine else { return false }
         return runtime.activeMachineID != machine.id
     }
@@ -105,7 +105,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func refreshQEMUInstallation() {
+    public func refreshQEMUInstallation() {
         do {
             qemuInstallation = try QEMUDiscovery.discover(fileManager: fileManager)
             qemuProblem = nil
@@ -145,7 +145,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func startSelectedMachine() {
+    public func startSelectedMachine() {
         guard let machine = selectedMachine else { return }
         start(machine)
     }
@@ -225,7 +225,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func beginEditingSelectedMachine() {
+    public func beginEditingSelectedMachine() {
         guard let machine = selectedMachine else { return }
         beginEditing(machine)
     }
@@ -279,7 +279,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func requestDelete(_ machine: VirtualMachine) {
+    public func requestDelete(_ machine: VirtualMachine) {
         guard runtime.activeMachineID != machine.id else {
             errorMessage = AppModelError.machineIsRunning.localizedDescription
             return
@@ -304,7 +304,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func revealBundle(for machineID: UUID) {
+    public func revealBundle(for machineID: UUID) {
         NSWorkspace.shared.activateFileViewerSelecting([
             store.layout.bundleURL(for: machineID)
         ])
