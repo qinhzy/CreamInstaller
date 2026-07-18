@@ -7,13 +7,13 @@ import XCTest
 /// 覆盖 AppModel 的真实交互流：创建、删除（含游离进程拦截）、
 /// 编辑与磁盘扩容、更换 ISO、ISO 缺失检测。文件系统操作全部落在
 /// 独立的临时目录里。
-@MainActor
 final class AppModelInteractionTests: XCTestCase {
     private var root: URL!
     private var isoURL: URL!
     private var store: VMFileStore!
     private var model: AppModel!
 
+    @MainActor
     override func setUp() async throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("WinLiftAppTests-\(UUID().uuidString)", isDirectory: true)
@@ -49,6 +49,7 @@ final class AppModelInteractionTests: XCTestCase {
 
     // MARK: - 创建
 
+    @MainActor
     func testCreateProvisionsBundleAndSelectsMachine() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         XCTAssertEqual(model.machines.count, 1)
@@ -66,6 +67,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertLessThan(values.totalFileAllocatedSize ?? .max, 1 << 20)
     }
 
+    @MainActor
     func testCreateWithoutISOFailsWithError() {
         var draft = makeDraft()
         draft.installerISOURL = nil
@@ -75,6 +77,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertTrue(model.machines.isEmpty)
     }
 
+    @MainActor
     func testCreateWithMissingISOFileFailsWithError() {
         var draft = makeDraft()
         draft.installerISOURL = root.appendingPathComponent("不存在.iso")
@@ -85,6 +88,7 @@ final class AppModelInteractionTests: XCTestCase {
 
     // MARK: - 删除
 
+    @MainActor
     func testDeleteMovesBundleAwayAfterConfirmation() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -99,6 +103,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: bundlePath))
     }
 
+    @MainActor
     func testDeleteIsBlockedWhileDetachedQEMUOwnsPidfile() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -118,6 +123,7 @@ final class AppModelInteractionTests: XCTestCase {
         ))
     }
 
+    @MainActor
     func testStalePidfileDoesNotBlockDeletion() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -135,6 +141,7 @@ final class AppModelInteractionTests: XCTestCase {
 
     // MARK: - 编辑
 
+    @MainActor
     func testApplyEditRenamesAndGrowsDisk() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -159,6 +166,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertEqual(reloaded.first?.diskSizeGiB, 96)
     }
 
+    @MainActor
     func testApplyEditRejectsDiskShrink() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -175,6 +183,7 @@ final class AppModelInteractionTests: XCTestCase {
 
     // MARK: - 安装介质
 
+    @MainActor
     func testReplaceISORejectsNonISOFile() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -188,6 +197,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertEqual(model.machines.first?.installerISOPath, isoURL.path)
     }
 
+    @MainActor
     func testReplaceISOPersistsNewPath() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)
@@ -202,6 +212,7 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertEqual(try store.loadAll().machines.first?.installerISOPath, newISO.path)
     }
 
+    @MainActor
     func testInstallerMissingDetection() throws {
         XCTAssertTrue(model.createVM(from: makeDraft()))
         let machine = try XCTUnwrap(model.machines.first)

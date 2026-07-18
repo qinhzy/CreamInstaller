@@ -49,6 +49,7 @@
 | `3e2ac0e` run #2 | **通过**：`swift test` 20/20；`--verify` 构建 App、adhoc 签名、启动成功（"WinLift 已成功启动。"） | `swift test` 通过；冒烟仍是旧脚本，同上失败 |
 | `d6a6d8e` run #3 | **通过** | **通过**：`swift test` 20/20；冒烟输出"QMP 生命周期、pidfile、稀疏磁盘（表观 64 GiB/实占 0 MiB）、EDK2 渲染全部符合预期" |
 | `e184d59`/`8a82e65` run #6/#7（v0.2.0 UI/交互重构：删除/编辑/换 ISO/退出流程/菜单/图标） | **通过**：新增视图与命令全部编译，App 带图标构建并启动成功 | **通过** |
+| `0173144` run #9（WinLiftAppCore 拆分 + 交互逻辑测试 + 退出看门狗） | **通过**：36/36 测试，其中 11 个 AppModel 交互测试（创建/删除进废纸篓/游离进程拦截/编辑扩容/换 ISO/ISO 缺失）与 5 个 Provisioner/Store 测试在 Apple Silicon 真机执行 | **通过**：跨平台测试 + QEMU 冒烟 |
 
 最新状态请以 GitHub Actions 页面为准：
 `https://github.com/qinhzy/CreamInstaller/actions/workflows/winlift.yml`
@@ -74,6 +75,8 @@ HVF 加速路径（`-accel hvf -cpu host`）无法在任何 CI/虚拟化环境�
 （GitHub 的 macOS runner 本身是虚拟机，不支持嵌套虚拟化）；
 但除这两个值外的全部参数已经由第二节的真实 QEMU 冒烟测试覆盖。
 
-另外说明：SwiftUI 界面的验证深度是"编译通过 + App 成功启动"。
-交互流（删除确认、编辑表单、拖放 ISO、运行中退出对话框等）没有
-自动化 UI 测试，视觉细节需要在真机上人工过一遍。
+另外说明：交互**逻辑**（创建、删除、编辑扩容、换 ISO、缺失检测、
+pidfile 拦截）已由 WinLiftAppTests 在 macOS CI 上自动化覆盖；
+SwiftUI **视图层**的验证深度仍是"编译通过 + App 成功启动"——
+按钮点击到视觉呈现之间的链路（SwiftPM 不支持 XCUITest bundle）
+需要在真机上人工过一遍。

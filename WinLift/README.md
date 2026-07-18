@@ -110,7 +110,7 @@ reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /
 - QEMU 显示在独立窗口，尚未嵌入 WinLift 主窗口。
 - 没有 TPM 2.0、Secure Boot、快照、克隆、共享目录、剪贴板同步和 USB 直通 UI。
 - RAM framebuffer 适合安装和基本桌面，不提供 Parallels 级别的 3D 加速；不适合游戏。
-- 退出 WinLift 前应先让 Windows 正常关机。强制停止可能损坏客体文件系统。
+- 运行中退出 WinLift 时会引导你选择"正常关机后退出"（等 Windows 退出后自动关闭，90 秒未完成会再次询问，可随时取消）或"强制停止并退出"。强制停止可能损坏客体文件系统。
 - Intel Mac 和 x64 Windows 不在当前范围内。
 
 下一阶段的合理顺序是：`swtpm`/Secure Boot → QMP Unix socket 与状态恢复 → 快照 → SPICE 显示及剪贴板 → 打包与更新机制。
