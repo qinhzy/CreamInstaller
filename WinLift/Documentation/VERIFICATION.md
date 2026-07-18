@@ -50,6 +50,7 @@
 | `d6a6d8e` run #3 | **通过** | **通过**：`swift test` 20/20；冒烟输出"QMP 生命周期、pidfile、稀疏磁盘（表观 64 GiB/实占 0 MiB）、EDK2 渲染全部符合预期" |
 | `e184d59`/`8a82e65` run #6/#7（v0.2.0 UI/交互重构：删除/编辑/换 ISO/退出流程/菜单/图标） | **通过**：新增视图与命令全部编译，App 带图标构建并启动成功 | **通过** |
 | `0173144` run #9（WinLiftAppCore 拆分 + 交互逻辑测试 + 退出看门狗） | **通过**：36/36 测试，其中 11 个 AppModel 交互测试（创建/删除进废纸篓/游离进程拦截/编辑扩容/换 ISO/ISO 缺失）与 5 个 Provisioner/Store 测试在 Apple Silicon 真机执行 | **通过**：跨平台测试 + QEMU 冒烟 |
+| `2878316` run #11（Apple 原生视觉语言重设计：hero 虚拟屏幕 + 分组表单 + 图标芯片） | **通过**：36/36 测试，App 构建并启动 | **通过** |
 
 最新状态请以 GitHub Actions 页面为准：
 `https://github.com/qinhzy/CreamInstaller/actions/workflows/winlift.yml`
