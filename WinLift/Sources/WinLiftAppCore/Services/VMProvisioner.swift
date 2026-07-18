@@ -60,10 +60,17 @@ struct VMProvisioner: @unchecked Sendable {
     }
 
     func resetEFIVariables(for machine: VirtualMachine) throws {
-        try createEFIVariablesFile(
-            at: store.layout.efiVariablesURL(for: machine.id),
-            replacingExistingFile: true
+        let url = store.layout.efiVariablesURL(for: machine.id)
+
+        // Build the complete erased-flash image beside the destination and let
+        // Foundation atomically replace the old file. The previous in-place
+        // truncate/write sequence could destroy a working variable store when
+        // a write failed or the app was interrupted halfway through.
+        let erasedFlash = Data(
+            repeating: 0xFF,
+            count: Int(Self.efiVariablesSizeBytes)
         )
+        try erasedFlash.write(to: url, options: .atomic)
     }
 
     /// 把稀疏磁盘扩容到配置中的新容量。只增不减：truncate 到更小的值
@@ -89,20 +96,11 @@ struct VMProvisioner: @unchecked Sendable {
         try handle.truncate(atOffset: size)
     }
 
-    private func createEFIVariablesFile(
-        at url: URL,
-        replacingExistingFile: Bool = false
-    ) throws {
-        let handle: FileHandle
-        if replacingExistingFile, fileManager.fileExists(atPath: url.path) {
-            handle = try FileHandle(forWritingTo: url)
-            try handle.truncate(atOffset: 0)
-        } else {
-            guard fileManager.createFile(atPath: url.path, contents: nil) else {
-                throw VMProvisioningError.couldNotCreateFile(url.path)
-            }
-            handle = try FileHandle(forWritingTo: url)
+    private func createEFIVariablesFile(at url: URL) throws {
+        guard fileManager.createFile(atPath: url.path, contents: nil) else {
+            throw VMProvisioningError.couldNotCreateFile(url.path)
         }
+        let handle = try FileHandle(forWritingTo: url)
 
         // A newly erased pflash contains 0xFF rather than zero bytes. EDK2 can
         // initialize its variable store from this erased-flash state.

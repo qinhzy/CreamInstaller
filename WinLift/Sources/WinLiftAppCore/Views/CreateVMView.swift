@@ -108,6 +108,7 @@ struct CreateVMView: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
+                .disabled(model.isCreatingVM)
 
                 if let hint = missingRequirementHint {
                     Text(hint)
@@ -137,8 +138,11 @@ struct CreateVMView: View {
             .padding(20)
         }
         .frame(width: 570, height: 620)
+        .interactiveDismissDisabled(model.isCreatingVM)
         .dropDestination(for: URL.self) { urls, _ in
-            guard let url = urls.first, url.pathExtension.lowercased() == "iso" else {
+            guard !model.isCreatingVM,
+                  let url = urls.first,
+                  url.pathExtension.lowercased() == "iso" else {
                 return false
             }
             draft.installerISOURL = url

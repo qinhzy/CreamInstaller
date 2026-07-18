@@ -161,14 +161,14 @@ public final class QEMUProcessController: ObservableObject {
 
     public func pause() {
         guard canPause else { return }
-        sendQMPCommand("stop")
+        guard sendQMPCommand("stop") else { return }
         state = .paused
         appendLog("[WinLift] 已请求暂停虚拟机。\n")
     }
 
     public func resume() {
         guard canResume else { return }
-        sendQMPCommand("cont")
+        guard sendQMPCommand("cont") else { return }
         state = .running
         appendLog("[WinLift] 已请求恢复虚拟机。\n")
     }
@@ -176,11 +176,14 @@ public final class QEMUProcessController: ObservableObject {
     public func requestShutdown() {
         guard process != nil, canRequestShutdown else { return }
         if state == .paused {
-            sendQMPCommand("cont")
+            guard sendQMPCommand("cont") else { return }
+            // QEMU has accepted the resume request. If the following powerdown
+            // write fails, do not leave the UI claiming that the VM is paused.
+            state = .running
         }
+        guard sendQMPCommand("system_powerdown") else { return }
         expectedTermination = true
         state = .stopping
-        sendQMPCommand("system_powerdown")
         appendLog("[WinLift] 已发送 ACPI 关机请求，请等待 Windows 正常退出。\n")
     }
 
@@ -217,9 +220,8 @@ public final class QEMUProcessController: ObservableObject {
         for message in qmpParser.consume(data) {
             switch message {
             case .greeting:
-                if !qmpCapabilitiesSent {
+                if !qmpCapabilitiesSent, sendQMPCommand("qmp_capabilities") {
                     qmpCapabilitiesSent = true
-                    sendQMPCommand("qmp_capabilities")
                     if state == .starting {
                         state = .running
                     }
@@ -230,7 +232,7 @@ public final class QEMUProcessController: ObservableObject {
 
             case let .event(event):
                 state = QMPStateReducer.state(after: message, currentState: state)
-                if event.uppercased() == "SHUTDOWN" {
+                if ["SHUTDOWN", "POWERDOWN"].contains(event.uppercased()) {
                     expectedTermination = true
                 }
 
@@ -244,15 +246,24 @@ public final class QEMUProcessController: ObservableObject {
         appendLog(String(decoding: data, as: UTF8.self))
     }
 
-    private func sendQMPCommand(_ command: String) {
-        guard let handle = qmpInput?.fileHandleForWriting else { return }
+    @discardableResult
+    private func sendQMPCommand(_ command: String) -> Bool {
+        guard let handle = qmpInput?.fileHandleForWriting else {
+            appendLog("[WinLift] QMP 命令发送失败：控制通道不可用。\n")
+            return false
+        }
         let payload = "{\"execute\":\"\(command)\"}\n"
-        guard let data = payload.data(using: .utf8) else { return }
+        guard let data = payload.data(using: .utf8) else {
+            appendLog("[WinLift] QMP 命令发送失败：无法编码命令。\n")
+            return false
+        }
 
         do {
             try handle.write(contentsOf: data)
+            return true
         } catch {
             appendLog("[WinLift] QMP 命令发送失败：\(error.localizedDescription)\n")
+            return false
         }
     }
 

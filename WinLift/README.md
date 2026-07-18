@@ -96,19 +96,19 @@ reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /
 - VM 配置校验和 JSON 持久化
 - 稀疏 RAW 磁盘与持久化 EFI 变量存储；磁盘只增不减的在线扩容
 - VM 创建在后台完成，64 MiB EFI 初始化期间表单会显示真实进度且阻止重复提交
-- Homebrew、MacPorts 和环境变量形式的 QEMU/UEFI 自动探测；检查 QEMU arm64 Mach-O 切片、64 MiB 固件并显示 QEMU 版本
+- Homebrew、MacPorts 和环境变量形式的 QEMU/UEFI 自动探测；后台检查 QEMU arm64 Mach-O 切片、64 MiB 固件与版本，版本进程 5 秒超时，不阻塞界面
 - ARM64 + HVF 启动参数
 - NVMe、NEC xHCI、USB 键鼠、USB RNDIS 网络、USB 音频、RAM framebuffer
 - ISO 挂载/弹出、更换 ISO（按钮或直接拖放 .iso）、ISO 文件缺失警示
 - 分片安全的 QMP 行/JSON 解析；STOP、RESUME、SHUTDOWN、POWERDOWN 事件驱动暂停、运行和关机状态
-- QMP 暂停、恢复、ACPI 关机与强制停止（强制停止有确认对话框）
+- QMP 暂停、恢复、ACPI 关机与强制停止（强制停止有确认对话框）；控制通道写入失败时不再发布虚假的暂停/运行/关机状态
 - 运行 PID 防重入；运行中退出可选“正常关机后退出”或“强制停止并退出”
 - 完整菜单栏命令与快捷键（⌘N 新建、⌘R 启动、⌘P 暂停/继续、⇧⌘R 关机、⌘I 编辑、⌘⌫ 删除）、侧栏右键菜单
 - 运行时长显示、有界运行日志（约 250 ms 批量刷新、自动滚动、一键复制）；qemu.log 超过 5 MiB 自动轮转
-- 停止状态可重置 64 MiB EFI 变量存储、用系统默认应用查看 qemu.log
+- 停止状态可在后台原子重置 64 MiB EFI 变量存储（操作期间锁定冲突动作）、用系统默认应用查看 qemu.log
 - ISO 缺失状态按加载/替换/挂载切换/启动节点缓存刷新，侧栏重绘不再重复访问文件系统
 - 安装小贴士卡片：TPM/Secure Boot 检查绕过命令一键复制
-- 51 项核心/App 测试，覆盖命令生成、QMP 分片与状态迁移、Mach-O/fat 解析、版本/固件体检、主机资源校验、存储和交互逻辑
+- 53 项核心/App 测试，覆盖命令生成、QMP 分片与状态迁移、Mach-O/fat 解析、版本执行/超时与固件体检、主机资源校验、存储和交互逻辑
 
 ## 当前限制
 

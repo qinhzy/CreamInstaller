@@ -119,6 +119,7 @@ public struct RootView: View {
     @ViewBuilder
     private func machineContextMenu(for machine: VirtualMachine) -> some View {
         let isActive = runtime.activeMachineID == machine.id
+        let isBusy = isActive || model.efiResetMachineID == machine.id
 
         if isActive {
             Button("正常关机") {
@@ -130,13 +131,13 @@ public struct RootView: View {
                 model.selectedMachineID = machine.id
                 model.start(machine)
             }
-            .disabled(!runtime.canStart || model.qemuInstallation == nil)
+            .disabled(!runtime.canStart || model.qemuInstallation == nil || isBusy)
         }
 
         Button("编辑配置…") {
             model.beginEditing(machine)
         }
-        .disabled(isActive)
+        .disabled(isBusy)
 
         Button("在 Finder 中显示") {
             model.revealBundle(for: machine.id)
@@ -147,7 +148,7 @@ public struct RootView: View {
         Button("删除…", role: .destructive) {
             model.requestDelete(machine)
         }
-        .disabled(isActive)
+        .disabled(isBusy)
     }
 
     private func state(for machine: VirtualMachine) -> VMRuntimeState {
@@ -166,9 +167,15 @@ private struct QEMUStatusRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Circle()
-                .fill(model.qemuInstallation == nil ? Color.orange : Color.green)
-                .frame(width: 7, height: 7)
+            if model.isRefreshingQEMUInstallation {
+                ProgressView()
+                    .controlSize(.mini)
+                    .frame(width: 10, height: 10)
+            } else {
+                Circle()
+                    .fill(model.qemuInstallation == nil ? Color.orange : Color.green)
+                    .frame(width: 7, height: 7)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -188,12 +195,16 @@ private struct QEMUStatusRow: View {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.borderless)
+            .disabled(model.isRefreshingQEMUInstallation)
             .help("重新检测 QEMU")
         }
-        .help(model.qemuProblem ?? model.qemuVersionProblem ?? "QEMU arm64 与 64 MiB EDK2 固件均已通过体检")
+        .help(statusHelp)
     }
 
     private var title: String {
+        if model.isRefreshingQEMUInstallation {
+            return "正在检测 QEMU…"
+        }
         if let version = model.qemuVersion {
             return "QEMU \(version)"
         }
@@ -201,6 +212,9 @@ private struct QEMUStatusRow: View {
     }
 
     private var detail: String {
+        if model.isRefreshingQEMUInstallation {
+            return "正在检查架构、版本与 EDK2 固件"
+        }
         if let problem = model.qemuProblem {
             return problem
         }
@@ -208,6 +222,15 @@ private struct QEMUStatusRow: View {
             return problem
         }
         return "arm64 · HVF · EDK2 64 MiB"
+    }
+
+    private var statusHelp: String {
+        if model.isRefreshingQEMUInstallation {
+            return "QEMU 体检正在后台运行"
+        }
+        return model.qemuProblem
+            ?? model.qemuVersionProblem
+            ?? "QEMU arm64 与 64 MiB EDK2 固件均已通过体检"
     }
 }
 

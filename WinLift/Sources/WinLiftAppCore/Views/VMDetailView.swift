@@ -29,7 +29,7 @@ struct VMDetailView: View {
                     MissingISOBanner(
                         path: machine.installerISOPath ?? "",
                         replaceAction: replaceISO,
-                        isEnabled: !isThisMachineActive
+                        isEnabled: !isThisMachineBusy
                     )
                 }
             }
@@ -54,7 +54,7 @@ struct VMDetailView: View {
             }
         }
         .dropDestination(for: URL.self) { urls, _ in
-            guard !isThisMachineActive,
+            guard !isThisMachineBusy,
                   let url = urls.first,
                   url.pathExtension.lowercased() == "iso" else {
                 return false
@@ -78,7 +78,9 @@ struct VMDetailView: View {
             isPresented: $isConfirmingEFIReset
         ) {
             Button("重置 EFI 变量", role: .destructive) {
-                model.resetEFIVariables(for: machine)
+                Task { @MainActor [model, machine] in
+                    await model.resetEFIVariables(for: machine)
+                }
             }
             Button("取消", role: .cancel) {}
         } message: {
@@ -170,7 +172,7 @@ struct VMDetailView: View {
                         .foregroundStyle(.white)
                 }
                 .buttonStyle(.plain)
-                .disabled(!runtime.canStart || model.qemuInstallation == nil)
+                .disabled(!runtime.canStart || model.qemuInstallation == nil || isEFIResetInProgress)
                 .help("启动虚拟机 (⌘R)")
 
                 Text("启动 Windows")
@@ -260,7 +262,7 @@ struct VMDetailView: View {
                 Label("启动", systemImage: "play.fill")
             }
             .buttonStyle(.borderedProminent)
-            .disabled(!runtime.canStart || model.qemuInstallation == nil)
+            .disabled(!runtime.canStart || model.qemuInstallation == nil || isEFIResetInProgress)
             .help("启动虚拟机 (⌘R)")
         } else {
             if runtime.state == .paused {
@@ -296,7 +298,7 @@ struct VMDetailView: View {
             Button("编辑配置…") {
                 model.beginEditing(machine)
             }
-            .disabled(isThisMachineActive)
+            .disabled(isThisMachineBusy)
 
             Button("在 Finder 中显示虚拟机文件") {
                 model.revealBundle(for: machine.id)
@@ -307,10 +309,10 @@ struct VMDetailView: View {
             }
             .disabled(isThisMachineActive)
 
-            Button("重置 EFI 变量…") {
+            Button(isEFIResetInProgress ? "正在重置 EFI 变量…" : "重置 EFI 变量…") {
                 isConfirmingEFIReset = true
             }
-            .disabled(isThisMachineActive)
+            .disabled(isThisMachineBusy)
 
             Divider()
 
@@ -322,7 +324,7 @@ struct VMDetailView: View {
             Button("删除虚拟机…", role: .destructive) {
                 model.requestDelete(machine)
             }
-            .disabled(isThisMachineActive)
+            .disabled(isThisMachineBusy)
         } label: {
             Image(systemName: "ellipsis.circle")
         }
@@ -390,8 +392,8 @@ struct VMDetailView: View {
                 Button("编辑配置…") {
                     model.beginEditing(machine)
                 }
-                .disabled(isThisMachineActive)
-                .help(isThisMachineActive ? "先关机才能修改配置" : "修改名称、CPU、内存或扩容磁盘 (⌘I)")
+                .disabled(isThisMachineBusy)
+                .help(isThisMachineBusy ? "请等待当前操作完成" : "修改名称、CPU、内存或扩容磁盘 (⌘I)")
 
                 Button("在 Finder 中显示虚拟机文件") {
                     model.revealBundle(for: machine.id)
@@ -414,7 +416,7 @@ struct VMDetailView: View {
                     SettingsIconChip(systemImage: "opticaldisc", tint: .cyan)
                 }
             }
-            .disabled(isThisMachineActive)
+            .disabled(isThisMachineBusy)
             .help("Windows 安装完成后关闭此开关，相当于弹出安装光盘")
 
             if let path = machine.installerISOPath {
@@ -433,7 +435,7 @@ struct VMDetailView: View {
                 Button("更换 ISO…") {
                     replaceISO()
                 }
-                .disabled(isThisMachineActive)
+                .disabled(isThisMachineBusy)
 
                 Text("也可以把 .iso 文件直接拖到本页任意位置。")
                     .font(.caption)
@@ -507,6 +509,14 @@ struct VMDetailView: View {
 
     private var isThisMachineActive: Bool {
         runtime.activeMachineID == machine.id
+    }
+
+    private var isEFIResetInProgress: Bool {
+        model.efiResetMachineID == machine.id
+    }
+
+    private var isThisMachineBusy: Bool {
+        isThisMachineActive || isEFIResetInProgress
     }
 
     private var displayedState: VMRuntimeState {

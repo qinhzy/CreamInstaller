@@ -9,6 +9,7 @@ enum AppModelError: LocalizedError {
     case installerMissing(String)
     case detachedQEMUStillRunning(Int32)
     case machineIsRunning
+    case efiResetInProgress
     case diskShrinkNotSupported
     case logFileMissing
     case logFileCouldNotOpen
@@ -21,6 +22,8 @@ enum AppModelError: LocalizedError {
             return "这台虚拟机已有 QEMU 进程在运行（PID \(pid)）。请先在原窗口中正常关闭它。"
         case .machineIsRunning:
             return "虚拟机正在运行。请先正常关机，再执行这个操作。"
+        case .efiResetInProgress:
+            return "正在重置 EFI 变量，请等待操作完成。"
         case .diskShrinkNotSupported:
             return "虚拟磁盘只支持扩容，不支持缩小。"
         case .logFileMissing:
@@ -41,6 +44,37 @@ struct HostResources {
     }
 }
 
+private enum QEMUHealthResult: Sendable {
+    case available(
+        QEMUInstallation,
+        version: String?,
+        versionProblem: String?
+    )
+    case unavailable(String)
+}
+
+private struct QEMUHealthProbe: @unchecked Sendable {
+    let fileManager: FileManager
+
+    func run() -> QEMUHealthResult {
+        do {
+            let installation = try QEMUDiscovery.discover(fileManager: fileManager)
+            do {
+                let version = try QEMUVersionProbe.version(at: installation.executableURL)
+                return .available(installation, version: version, versionProblem: nil)
+            } catch {
+                return .available(
+                    installation,
+                    version: nil,
+                    versionProblem: error.localizedDescription
+                )
+            }
+        } catch {
+            return .unavailable(error.localizedDescription)
+        }
+    }
+}
+
 @MainActor
 public final class AppModel: ObservableObject {
     @Published private(set) var machines: [VirtualMachine] = []
@@ -49,10 +83,12 @@ public final class AppModel: ObservableObject {
     @Published var editingDraft: VMEditDraft?
     @Published var machinePendingDeletion: VirtualMachine?
     @Published private(set) var isCreatingVM = false
+    @Published private(set) var efiResetMachineID: UUID?
     @Published private(set) var qemuInstallation: QEMUInstallation?
     @Published private(set) var qemuProblem: String?
     @Published private(set) var qemuVersion: String?
     @Published private(set) var qemuVersionProblem: String?
+    @Published private(set) var isRefreshingQEMUInstallation = false
     @Published private(set) var installerMissingMachineIDs = Set<UUID>()
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
@@ -63,6 +99,7 @@ public final class AppModel: ObservableObject {
     private let provisioner: VMProvisioner
     private let fileManager: FileManager
     private var cancellables = Set<AnyCancellable>()
+    private var qemuRefreshTask: Task<Void, Never>?
 
     public init(
         store: VMFileStore = .live(),
@@ -91,7 +128,8 @@ public final class AppModel: ObservableObject {
     }
 
     public var canStartSelectedMachine: Bool {
-        guard selectedMachine != nil else { return false }
+        guard let selectedMachine else { return false }
+        guard efiResetMachineID != selectedMachine.id else { return false }
         return runtime.canStart && qemuInstallation != nil
     }
 
@@ -99,6 +137,7 @@ public final class AppModel: ObservableObject {
     public var canModifySelectedMachine: Bool {
         guard let machine = selectedMachine else { return false }
         return runtime.activeMachineID != machine.id
+            && efiResetMachineID != machine.id
     }
 
     func reload() {
@@ -116,22 +155,32 @@ public final class AppModel: ObservableObject {
     }
 
     public func refreshQEMUInstallation() {
-        do {
-            let installation = try QEMUDiscovery.discover(fileManager: fileManager)
-            qemuInstallation = installation
-            qemuProblem = nil
-            do {
-                qemuVersion = try QEMUVersionProbe.version(at: installation.executableURL)
-                qemuVersionProblem = nil
-            } catch {
-                qemuVersion = nil
-                qemuVersionProblem = error.localizedDescription
+        qemuRefreshTask?.cancel()
+        isRefreshingQEMUInstallation = true
+
+        let probe = QEMUHealthProbe(fileManager: fileManager)
+        let detachedProbe = Task.detached(priority: .utility) { [probe] in
+            probe.run()
+        }
+        qemuRefreshTask = Task { @MainActor [weak self, detachedProbe] in
+            let result = await detachedProbe.value
+            guard !Task.isCancelled, let self else { return }
+
+            self.qemuRefreshTask = nil
+            self.isRefreshingQEMUInstallation = false
+            switch result {
+            case let .available(installation, version, versionProblem):
+                self.qemuInstallation = installation
+                self.qemuProblem = nil
+                self.qemuVersion = version
+                self.qemuVersionProblem = versionProblem
+
+            case let .unavailable(problem):
+                self.qemuInstallation = nil
+                self.qemuProblem = problem
+                self.qemuVersion = nil
+                self.qemuVersionProblem = nil
             }
-        } catch {
-            qemuInstallation = nil
-            qemuProblem = error.localizedDescription
-            qemuVersion = nil
-            qemuVersionProblem = nil
         }
     }
 
@@ -174,6 +223,10 @@ public final class AppModel: ObservableObject {
     }
 
     func start(_ machine: VirtualMachine) {
+        guard efiResetMachineID != machine.id else {
+            errorMessage = AppModelError.efiResetInProgress.localizedDescription
+            return
+        }
         guard let installation = qemuInstallation else {
             errorMessage = qemuProblem ?? "QEMU 尚未安装。"
             return
@@ -202,6 +255,7 @@ public final class AppModel: ObservableObject {
 
     func setInstallerAttached(_ isAttached: Bool, for machineID: UUID) {
         guard runtime.activeMachineID != machineID,
+              efiResetMachineID != machineID,
               let index = machines.firstIndex(where: { $0.id == machineID }) else {
             return
         }
@@ -225,8 +279,9 @@ public final class AppModel: ObservableObject {
 
     func replaceInstallerISO(with url: URL, for machineID: UUID) {
         guard let index = machines.firstIndex(where: { $0.id == machineID }) else { return }
-        guard runtime.activeMachineID != machineID else {
-            errorMessage = AppModelError.machineIsRunning.localizedDescription
+        guard runtime.activeMachineID != machineID,
+              efiResetMachineID != machineID else {
+            errorMessage = operationBlockedMessage(for: machineID)
             return
         }
         guard url.pathExtension.lowercased() == "iso" else {
@@ -253,8 +308,9 @@ public final class AppModel: ObservableObject {
     }
 
     func beginEditing(_ machine: VirtualMachine) {
-        guard runtime.activeMachineID != machine.id else {
-            errorMessage = AppModelError.machineIsRunning.localizedDescription
+        guard runtime.activeMachineID != machine.id,
+              efiResetMachineID != machine.id else {
+            errorMessage = operationBlockedMessage(for: machine.id)
             return
         }
         editingDraft = VMEditDraft(machine: machine)
@@ -265,8 +321,9 @@ public final class AppModel: ObservableObject {
             return false
         }
         let current = machines[index]
-        guard runtime.activeMachineID != current.id else {
-            errorMessage = AppModelError.machineIsRunning.localizedDescription
+        guard runtime.activeMachineID != current.id,
+              efiResetMachineID != current.id else {
+            errorMessage = operationBlockedMessage(for: current.id)
             return false
         }
         guard draft.diskSizeGiB >= current.diskSizeGiB else {
@@ -303,8 +360,9 @@ public final class AppModel: ObservableObject {
     }
 
     public func requestDelete(_ machine: VirtualMachine) {
-        guard runtime.activeMachineID != machine.id else {
-            errorMessage = AppModelError.machineIsRunning.localizedDescription
+        guard runtime.activeMachineID != machine.id,
+              efiResetMachineID != machine.id else {
+            errorMessage = operationBlockedMessage(for: machine.id)
             return
         }
         machinePendingDeletion = machine
@@ -313,6 +371,11 @@ public final class AppModel: ObservableObject {
     func confirmDelete() {
         guard let machine = machinePendingDeletion else { return }
         machinePendingDeletion = nil
+
+        guard efiResetMachineID != machine.id else {
+            errorMessage = AppModelError.efiResetInProgress.localizedDescription
+            return
+        }
 
         do {
             try ensureNoDetachedProcess(for: machine)
@@ -333,7 +396,8 @@ public final class AppModel: ObservableObject {
         ])
     }
 
-    func resetEFIVariables(for machine: VirtualMachine) {
+    func resetEFIVariables(for machine: VirtualMachine) async {
+        guard efiResetMachineID == nil else { return }
         guard runtime.activeMachineID != machine.id else {
             errorMessage = AppModelError.machineIsRunning.localizedDescription
             return
@@ -341,7 +405,13 @@ public final class AppModel: ObservableObject {
 
         do {
             try ensureNoDetachedProcess(for: machine)
-            try provisioner.resetEFIVariables(for: machine)
+            efiResetMachineID = machine.id
+            defer { efiResetMachineID = nil }
+
+            let provisioner = self.provisioner
+            try await Task.detached(priority: .userInitiated) { [provisioner, machine] in
+                try provisioner.resetEFIVariables(for: machine)
+            }.value
             noticeMessage = "已重置“\(machine.name)”的 EFI 变量。"
         } catch {
             errorMessage = "重置 EFI 变量失败：\(error.localizedDescription)"
@@ -410,6 +480,13 @@ public final class AppModel: ObservableObject {
             hostProcessorCount: hostResources.processorCount,
             hostMemoryGiB: hostResources.memoryGiB
         )
+    }
+
+    private func operationBlockedMessage(for machineID: UUID) -> String {
+        if efiResetMachineID == machineID {
+            return AppModelError.efiResetInProgress.localizedDescription
+        }
+        return AppModelError.machineIsRunning.localizedDescription
     }
 
     private func ensureNoDetachedProcess(for machine: VirtualMachine) throws {

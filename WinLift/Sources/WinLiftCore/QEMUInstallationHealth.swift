@@ -1,4 +1,11 @@
 import Foundation
+import Dispatch
+
+#if os(Linux)
+import Glibc
+#elseif os(macOS)
+import Darwin
+#endif
 
 public enum MachOArchitecture: Hashable, Sendable {
     case arm64
@@ -139,6 +146,7 @@ public enum QEMUVersionError: LocalizedError, Equatable, Sendable {
     case couldNotLaunch(String)
     case nonzeroExit(Int32)
     case unrecognizedOutput
+    case timedOut
 
     public var errorDescription: String? {
         switch self {
@@ -148,6 +156,8 @@ public enum QEMUVersionError: LocalizedError, Equatable, Sendable {
             return "qemu-system-aarch64 --version 退出状态码为 \(status)。"
         case .unrecognizedOutput:
             return "无法解析 QEMU 版本输出。"
+        case .timedOut:
+            return "等待 QEMU 版本信息超时。请检查安装是否完整。"
         }
     }
 }
@@ -177,21 +187,31 @@ public enum QEMUVersionParser {
 }
 
 public enum QEMUVersionProbe {
-    public static func version(at executableURL: URL) throws -> String {
+    public static func version(
+        at executableURL: URL,
+        timeout: TimeInterval = 5
+    ) throws -> String {
         let process = Process()
         let standardOutput = Pipe()
         let standardError = Pipe()
+        let termination = DispatchSemaphore(value: 0)
         process.executableURL = executableURL
         process.arguments = ["--version"]
         process.standardOutput = standardOutput
         process.standardError = standardError
+        process.terminationHandler = { _ in
+            termination.signal()
+        }
 
         do {
             try process.run()
         } catch {
             throw QEMUVersionError.couldNotLaunch(error.localizedDescription)
         }
-        process.waitUntilExit()
+        guard termination.wait(timeout: .now() + max(0, timeout)) == .success else {
+            stop(process, waitingOn: termination)
+            throw QEMUVersionError.timedOut
+        }
 
         var outputData = standardOutput.fileHandleForReading.readDataToEndOfFile()
         outputData.append(standardError.fileHandleForReading.readDataToEndOfFile())
@@ -202,5 +222,24 @@ public enum QEMUVersionProbe {
             throw QEMUVersionError.unrecognizedOutput
         }
         return version
+    }
+
+    private static func stop(
+        _ process: Process,
+        waitingOn termination: DispatchSemaphore
+    ) {
+        if process.isRunning {
+            process.terminate()
+        }
+        if termination.wait(timeout: .now() + 1) == .success {
+            return
+        }
+
+#if os(Linux) || os(macOS)
+        if process.isRunning {
+            _ = kill(process.processIdentifier, SIGKILL)
+            _ = termination.wait(timeout: .now() + 1)
+        }
+#endif
     }
 }

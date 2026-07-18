@@ -198,9 +198,10 @@ final class AppModelInteractionTests: XCTestCase {
         let url = store.layout.efiVariablesURL(for: machine.id)
         try Data(repeating: 0, count: 64).write(to: url)
 
-        model.resetEFIVariables(for: machine)
+        await model.resetEFIVariables(for: machine)
 
         XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.efiResetMachineID)
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         XCTAssertEqual(
             (attributes[.size] as? NSNumber)?.uint64Value,

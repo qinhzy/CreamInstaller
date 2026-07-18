@@ -144,6 +144,34 @@ final class QEMUDiscoveryTests: XCTestCase {
         XCTAssertNil(QEMUVersionParser.parse("not QEMU output"))
     }
 
+    func testVersionProbeRunsExecutableAndParsesOutput() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let executable = root.appendingPathComponent("fake-qemu")
+        try writeShellScript(
+            "#!/bin/sh\nprintf 'QEMU emulator version 9.2.3\\n'\n",
+            to: executable
+        )
+
+        XCTAssertEqual(
+            try QEMUVersionProbe.version(at: executable, timeout: 1),
+            "9.2.3"
+        )
+    }
+
+    func testVersionProbeTerminatesHungExecutableAfterTimeout() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let executable = root.appendingPathComponent("hung-qemu")
+        try writeShellScript("#!/bin/sh\nwhile :; do :; done\n", to: executable)
+
+        XCTAssertThrowsError(
+            try QEMUVersionProbe.version(at: executable, timeout: 0.05)
+        ) { error in
+            XCTAssertEqual(error as? QEMUVersionError, .timedOut)
+        }
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -153,6 +181,14 @@ final class QEMUDiscoveryTests: XCTestCase {
 
     private func writeExecutable(at url: URL, cpuType: UInt32) throws {
         try thinMachOHeader(cpuType: cpuType).write(to: url)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: url.path
+        )
+    }
+
+    private func writeShellScript(_ script: String, to url: URL) throws {
+        try script.write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes(
             [.posixPermissions: 0o755],
             ofItemAtPath: url.path
