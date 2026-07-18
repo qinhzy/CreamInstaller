@@ -36,6 +36,15 @@ mkdir -p "$APP_MACOS"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 
+ICON_KEYS=""
+if [[ -d "$ROOT_DIR/Resources/AppIcon.iconset" ]] && command -v iconutil >/dev/null 2>&1; then
+  mkdir -p "$APP_CONTENTS/Resources"
+  iconutil --convert icns \
+    --output "$APP_CONTENTS/Resources/AppIcon.icns" \
+    "$ROOT_DIR/Resources/AppIcon.iconset"
+  ICON_KEYS=$'  <key>CFBundleIconFile</key>\n  <string>AppIcon</string>'
+fi
+
 cat >"$INFO_PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,10 +60,13 @@ cat >"$INFO_PLIST" <<PLIST
   <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>zh-Hans</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.1.0</string>
+  <string>0.2.0</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
+$ICON_KEYS
   <key>LSMinimumSystemVersion</key>
   <string>$MIN_SYSTEM_VERSION</string>
   <key>NSHighResolutionCapable</key>

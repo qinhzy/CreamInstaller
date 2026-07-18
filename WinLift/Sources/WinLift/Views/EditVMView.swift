@@ -1,11 +1,10 @@
 #if os(macOS)
 import SwiftUI
 
-struct CreateVMView: View {
+struct EditVMView: View {
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var model: AppModel
-    @State private var draft = VMCreationDraft()
-    @FocusState private var isNameFieldFocused: Bool
+    @State private var draft: VMEditDraft
 
     private let maximumCPUCount = max(
         2,
@@ -16,17 +15,22 @@ struct CreateVMView: View {
         min(128, Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824))
     )
 
+    init(model: AppModel, draft: VMEditDraft) {
+        self.model = model
+        _draft = State(initialValue: draft)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Image(systemName: "plus.rectangle.on.rectangle")
+                Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 30))
                     .foregroundStyle(.tint)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("新建 Windows 虚拟机")
+                    Text("编辑虚拟机配置")
                         .font(.title2.weight(.semibold))
-                    Text("为 Apple Silicon 配置 Windows 11 ARM64")
+                    Text("修改会在下次启动时生效")
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -38,7 +42,6 @@ struct CreateVMView: View {
             Form {
                 Section("名称") {
                     TextField("虚拟机名称", text: $draft.name)
-                        .focused($isNameFieldFocused)
                 }
 
                 Section("硬件") {
@@ -56,14 +59,18 @@ struct CreateVMView: View {
                         }
                     }
 
-                    Stepper(value: $draft.diskSizeGiB, in: 32...2_048, step: 16) {
+                    Stepper(
+                        value: $draft.diskSizeGiB,
+                        in: draft.minimumDiskSizeGiB...2_048,
+                        step: 16
+                    ) {
                         LabeledContent("磁盘") {
                             Text("\(draft.diskSizeGiB) GiB")
                                 .monospacedDigit()
                         }
                     }
 
-                    Text("主机共 \(model.hostResources.processorCount) 核 · \(model.hostResources.memoryGiB) GiB 内存；建议分配不超过一半，磁盘使用稀疏文件、按需占用空间。")
+                    Text("磁盘只支持扩容。扩容后需要在 Windows 的“磁盘管理”中扩展分区才能使用新空间。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -73,34 +80,23 @@ struct CreateVMView: View {
                         Image(systemName: "opticaldisc")
                             .foregroundStyle(.secondary)
 
-                        Text(draft.installerISOURL?.lastPathComponent ?? "尚未选择 ARM64 ISO")
+                        Text(displayedISOName)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                            .foregroundStyle(draft.installerISOURL == nil ? .secondary : .primary)
-                            .help(draft.installerISOURL?.path ?? "")
+                            .foregroundStyle(.primary)
+                            .help(draft.installerISOURL?.path ?? draft.currentISOPath ?? "")
 
                         Spacer()
 
-                        Button("选择…") {
+                        Button("更换…") {
                             if let url = ISOPicker.pick() {
                                 draft.installerISOURL = url
                             }
                         }
                     }
-
-                    Text("也可以把 .iso 文件直接拖到这个窗口。")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-
-                    Button("从 Microsoft 下载 Windows 11 ARM64 ISO") {
-                        model.openWindowsDownloadPage()
-                    }
-                    .buttonStyle(.link)
-                    .font(.caption)
                 }
             }
             .formStyle(.grouped)
-            .disabled(model.isCreatingVM)
 
             Divider()
 
@@ -110,32 +106,20 @@ struct CreateVMView: View {
                 }
                 .keyboardShortcut(.cancelAction)
 
-                if let hint = missingRequirementHint {
-                    Text(hint)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 8)
-                }
-
                 Spacer()
 
-                if model.isCreatingVM {
-                    ProgressView()
-                        .controlSize(.small)
-                }
-
-                Button("创建") {
-                    if model.createVM(from: draft) {
+                Button("保存") {
+                    if model.applyEdit(draft) {
                         dismiss()
                     }
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(!canCreate || model.isCreatingVM)
+                .disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(20)
         }
-        .frame(width: 570, height: 620)
+        .frame(width: 570, height: 560)
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first, url.pathExtension.lowercased() == "iso" else {
                 return false
@@ -143,30 +127,16 @@ struct CreateVMView: View {
             draft.installerISOURL = url
             return true
         }
-        .onAppear {
-            isNameFieldFocused = true
-        }
     }
 
-    private var canCreate: Bool {
-        !draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && draft.installerISOURL != nil
-    }
-
-    private var missingRequirementHint: String? {
-        let nameMissing = draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let isoMissing = draft.installerISOURL == nil
-
-        switch (nameMissing, isoMissing) {
-        case (true, true):
-            return "还需要：名称和 Windows ISO"
-        case (true, false):
-            return "还需要：虚拟机名称"
-        case (false, true):
-            return "还需要：Windows 11 ARM64 ISO"
-        case (false, false):
-            return nil
+    private var displayedISOName: String {
+        if let url = draft.installerISOURL {
+            return url.lastPathComponent
         }
+        if let path = draft.currentISOPath, !path.isEmpty {
+            return URL(fileURLWithPath: path).lastPathComponent
+        }
+        return "尚未选择 ISO"
     }
 }
 #endif

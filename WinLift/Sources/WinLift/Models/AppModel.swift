@@ -8,6 +8,8 @@ import WinLiftCore
 enum AppModelError: LocalizedError {
     case installerMissing(String)
     case detachedQEMUStillRunning(Int32)
+    case machineIsRunning
+    case diskShrinkNotSupported
 
     var errorDescription: String? {
         switch self {
@@ -15,7 +17,21 @@ enum AppModelError: LocalizedError {
             return "找不到 Windows 安装镜像：\(path)"
         case let .detachedQEMUStillRunning(pid):
             return "这台虚拟机已有 QEMU 进程在运行（PID \(pid)）。请先在原窗口中正常关闭它。"
+        case .machineIsRunning:
+            return "虚拟机正在运行。请先正常关机，再执行这个操作。"
+        case .diskShrinkNotSupported:
+            return "虚拟磁盘只支持扩容，不支持缩小。"
         }
+    }
+}
+
+struct HostResources {
+    let processorCount: Int
+    let memoryGiB: Int
+
+    init(processInfo: ProcessInfo = .processInfo) {
+        processorCount = max(1, processInfo.activeProcessorCount)
+        memoryGiB = max(1, Int(processInfo.physicalMemory / 1_073_741_824))
     }
 }
 
@@ -24,12 +40,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var machines: [VirtualMachine] = []
     @Published var selectedMachineID: UUID?
     @Published var isPresentingCreateVM = false
+    @Published var editingDraft: VMEditDraft?
+    @Published var machinePendingDeletion: VirtualMachine?
     @Published private(set) var isCreatingVM = false
     @Published private(set) var qemuInstallation: QEMUInstallation?
     @Published private(set) var qemuProblem: String?
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
 
+    let hostResources = HostResources()
     let runtime: QEMUProcessController
     private let store: VMFileStore
     private let provisioner: VMProvisioner
@@ -65,6 +84,12 @@ final class AppModel: ObservableObject {
     var canStartSelectedMachine: Bool {
         guard selectedMachine != nil else { return false }
         return runtime.canStart && qemuInstallation != nil
+    }
+
+    /// 编辑、删除、更换 ISO 等操作只允许在这台机器没有运行时执行。
+    var canModifySelectedMachine: Bool {
+        guard let machine = selectedMachine else { return false }
+        return runtime.activeMachineID != machine.id
     }
 
     func reload() {
@@ -122,6 +147,10 @@ final class AppModel: ObservableObject {
 
     func startSelectedMachine() {
         guard let machine = selectedMachine else { return }
+        start(machine)
+    }
+
+    func start(_ machine: VirtualMachine) {
         guard let installation = qemuInstallation else {
             errorMessage = qemuProblem ?? "QEMU 尚未安装。"
             return
@@ -163,6 +192,115 @@ final class AppModel: ObservableObject {
             machines[index] = updated
         } catch {
             errorMessage = "配置保存失败：\(error.localizedDescription)"
+        }
+    }
+
+    func isInstallerMissing(for machine: VirtualMachine) -> Bool {
+        guard machine.attachInstaller, let path = machine.installerISOPath, !path.isEmpty else {
+            return false
+        }
+        return !fileManager.fileExists(atPath: path)
+    }
+
+    func replaceInstallerISO(with url: URL, for machineID: UUID) {
+        guard let index = machines.firstIndex(where: { $0.id == machineID }) else { return }
+        guard runtime.activeMachineID != machineID else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return
+        }
+        guard url.pathExtension.lowercased() == "iso" else {
+            errorMessage = VMValidationError.invalidInstallerExtension.localizedDescription
+            return
+        }
+
+        var updated = machines[index]
+        updated.installerISOPath = url.path
+
+        do {
+            try VMValidator.validate(updated)
+            try store.save(updated)
+            machines[index] = updated
+        } catch {
+            errorMessage = "更换 ISO 失败：\(error.localizedDescription)"
+        }
+    }
+
+    func beginEditingSelectedMachine() {
+        guard let machine = selectedMachine else { return }
+        beginEditing(machine)
+    }
+
+    func beginEditing(_ machine: VirtualMachine) {
+        guard runtime.activeMachineID != machine.id else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return
+        }
+        editingDraft = VMEditDraft(machine: machine)
+    }
+
+    func applyEdit(_ draft: VMEditDraft) -> Bool {
+        guard let index = machines.firstIndex(where: { $0.id == draft.machineID }) else {
+            return false
+        }
+        let current = machines[index]
+        guard runtime.activeMachineID != current.id else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return false
+        }
+        guard draft.diskSizeGiB >= current.diskSizeGiB else {
+            errorMessage = AppModelError.diskShrinkNotSupported.localizedDescription
+            return false
+        }
+        if let iso = draft.installerISOURL, iso.pathExtension.lowercased() != "iso" {
+            errorMessage = VMValidationError.invalidInstallerExtension.localizedDescription
+            return false
+        }
+
+        var updated = current
+        updated.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        updated.cpuCount = draft.cpuCount
+        updated.memorySizeGiB = draft.memorySizeGiB
+        updated.diskSizeGiB = draft.diskSizeGiB
+        if let iso = draft.installerISOURL {
+            updated.installerISOPath = iso.path
+        }
+
+        do {
+            try VMValidator.validate(updated)
+            if updated.diskSizeGiB > current.diskSizeGiB {
+                try provisioner.growDisk(for: updated)
+            }
+            try store.save(updated)
+            machines[index] = updated
+            return true
+        } catch {
+            errorMessage = "保存配置失败：\(error.localizedDescription)"
+            return false
+        }
+    }
+
+    func requestDelete(_ machine: VirtualMachine) {
+        guard runtime.activeMachineID != machine.id else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return
+        }
+        machinePendingDeletion = machine
+    }
+
+    func confirmDelete() {
+        guard let machine = machinePendingDeletion else { return }
+        machinePendingDeletion = nil
+
+        do {
+            try ensureNoDetachedProcess(for: machine)
+            try fileManager.trashItem(
+                at: store.layout.bundleURL(for: machine.id),
+                resultingItemURL: nil
+            )
+            runtime.forget(machineID: machine.id)
+            reload()
+        } catch {
+            errorMessage = "删除失败：\(error.localizedDescription)"
         }
     }
 

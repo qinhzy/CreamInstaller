@@ -1,12 +1,16 @@
 #if os(macOS)
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    // 闭包在主线程的 applicationShouldTerminate 中同步调用，
-    // 且需要读取 @MainActor 的运行时状态，因此必须标注 MainActor 隔离。
-    var runtimeIsActive: @MainActor () -> Bool = { false }
+    weak var model: AppModel?
+
+    private var terminationWatcher: AnyCancellable?
+    private var wantsGracefulShutdown = false
+    private var shutdownRequestSent = false
+    private var forceStopSent = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
@@ -18,15 +22,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        guard runtimeIsActive() else { return .terminateNow }
+        guard let model, model.runtime.state.isActive else { return .terminateNow }
 
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "Windows 仍在运行"
-        alert.informativeText = "请先在 WinLift 中正常关闭虚拟机，再退出应用，以免留下失去控制的 QEMU 进程或损坏磁盘。"
-        alert.addButton(withTitle: "返回 WinLift")
-        alert.runModal()
-        return .terminateCancel
+        alert.informativeText = """
+        可以先发送正常关机请求，等 Windows 退出后自动关闭 WinLift。\
+        强制停止会立即结束 QEMU，可能损坏虚拟机磁盘。\
+        如果关机迟迟没有完成，可以回到窗口中改用强制停止。
+        """
+        alert.addButton(withTitle: "正常关机后退出")
+        alert.addButton(withTitle: "取消")
+        alert.addButton(withTitle: "强制停止并退出")
+        if alert.buttons.count == 3 {
+            alert.buttons[2].hasDestructiveAction = true
+        }
+
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            beginTermination(model: model, graceful: true)
+            return .terminateLater
+        case .alertThirdButtonReturn:
+            beginTermination(model: model, graceful: false)
+            return .terminateLater
+        default:
+            return .terminateCancel
+        }
+    }
+
+    private func beginTermination(model: AppModel, graceful: Bool) {
+        wantsGracefulShutdown = graceful
+        shutdownRequestSent = false
+        forceStopSent = false
+
+        advanceTermination(model: model)
+        terminationWatcher = model.runtime.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak model] _ in
+                Task { @MainActor [weak self, weak model] in
+                    guard let self, let model else { return }
+                    self.advanceTermination(model: model)
+                }
+            }
+    }
+
+    private func advanceTermination(model: AppModel) {
+        let runtime = model.runtime
+
+        guard runtime.state.isActive else {
+            terminationWatcher = nil
+            NSApp.reply(toApplicationShouldTerminate: true)
+            return
+        }
+
+        if wantsGracefulShutdown {
+            // .starting 阶段 QMP 尚未就绪；等状态推进后再发送关机。
+            if !shutdownRequestSent, runtime.canRequestShutdown {
+                shutdownRequestSent = true
+                runtime.requestShutdown()
+            }
+        } else if !forceStopSent {
+            forceStopSent = true
+            runtime.forceStop()
+        }
     }
 }
 
@@ -40,37 +99,82 @@ struct WinLiftApp: App {
             RootView(model: model)
                 .frame(minWidth: 900, minHeight: 620)
                 .onAppear {
-                    appDelegate.runtimeIsActive = {
-                        model.runtime.state.isActive
-                    }
+                    appDelegate.model = model
                 }
         }
+        .defaultSize(width: 1080, height: 700)
         .windowStyle(.automatic)
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("新建虚拟机…") {
-                    model.isPresentingCreateVM = true
+            WinLiftCommands(model: model)
+        }
+    }
+}
+
+private struct WinLiftCommands: Commands {
+    @ObservedObject var model: AppModel
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("新建虚拟机…") {
+                model.isPresentingCreateVM = true
+            }
+            .keyboardShortcut("n", modifiers: .command)
+        }
+
+        CommandMenu("虚拟机") {
+            Button("启动") {
+                model.startSelectedMachine()
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(!model.canStartSelectedMachine)
+
+            if model.runtime.state == .paused {
+                Button("继续") {
+                    model.runtime.resume()
                 }
-                .keyboardShortcut("n", modifiers: .command)
+                .keyboardShortcut("p", modifiers: .command)
+                .disabled(!model.runtime.canResume)
+            } else {
+                Button("暂停") {
+                    model.runtime.pause()
+                }
+                .keyboardShortcut("p", modifiers: .command)
+                .disabled(!model.runtime.canPause)
             }
 
-            CommandMenu("虚拟机") {
-                Button("启动") {
-                    model.startSelectedMachine()
-                }
-                .keyboardShortcut("r", modifiers: .command)
-                .disabled(!model.canStartSelectedMachine)
+            Button("正常关机") {
+                model.runtime.requestShutdown()
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .disabled(!model.runtime.canRequestShutdown)
 
-                Button("正常关机") {
-                    model.runtime.requestShutdown()
-                }
-                .disabled(!model.runtime.canRequestShutdown)
+            Divider()
 
-                Divider()
+            Button("编辑配置…") {
+                model.beginEditingSelectedMachine()
+            }
+            .keyboardShortcut("i", modifiers: .command)
+            .disabled(model.selectedMachine == nil || !model.canModifySelectedMachine)
 
-                Button("刷新 QEMU 状态") {
-                    model.refreshQEMUInstallation()
+            Button("在 Finder 中显示") {
+                if let machineID = model.selectedMachineID {
+                    model.revealBundle(for: machineID)
                 }
+            }
+            .disabled(model.selectedMachine == nil)
+
+            Button("删除虚拟机…", role: .destructive) {
+                if let machine = model.selectedMachine {
+                    model.requestDelete(machine)
+                }
+            }
+            .keyboardShortcut(.delete, modifiers: .command)
+            .disabled(model.selectedMachine == nil || !model.canModifySelectedMachine)
+
+            Divider()
+
+            Button("刷新 QEMU 状态") {
+                model.refreshQEMUInstallation()
             }
         }
     }

@@ -18,9 +18,13 @@ struct RootView: View {
                     ForEach(model.machines) { machine in
                         SidebarMachineRow(
                             machine: machine,
-                            state: state(for: machine)
+                            state: state(for: machine),
+                            installerMissing: model.isInstallerMissing(for: machine)
                         )
                         .tag(machine.id)
+                        .contextMenu {
+                            machineContextMenu(for: machine)
+                        }
                     }
                 }
 
@@ -35,6 +39,11 @@ struct RootView: View {
             .listStyle(.sidebar)
             .navigationTitle("WinLift")
             .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 340)
+            .onDeleteCommand {
+                if let machine = model.selectedMachine, model.canModifySelectedMachine {
+                    model.requestDelete(machine)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -64,6 +73,9 @@ struct RootView: View {
         .sheet(isPresented: $model.isPresentingCreateVM) {
             CreateVMView(model: model)
         }
+        .sheet(item: $model.editingDraft) { draft in
+            EditVMView(model: model, draft: draft)
+        }
         .alert(
             "操作失败",
             isPresented: Binding(
@@ -79,6 +91,59 @@ struct RootView: View {
         } message: {
             Text(model.errorMessage ?? "未知错误")
         }
+        .alert(
+            "删除虚拟机？",
+            isPresented: Binding(
+                get: { model.machinePendingDeletion != nil },
+                set: { isPresented in
+                    if !isPresented { model.machinePendingDeletion = nil }
+                }
+            ),
+            presenting: model.machinePendingDeletion
+        ) { _ in
+            Button("移到废纸篓", role: .destructive) {
+                model.confirmDelete()
+            }
+            Button("取消", role: .cancel) {
+                model.machinePendingDeletion = nil
+            }
+        } message: { machine in
+            Text("“\(machine.name)”的整个虚拟机目录（包括虚拟磁盘和 EFI 状态）会被移到废纸篓。")
+        }
+    }
+
+    @ViewBuilder
+    private func machineContextMenu(for machine: VirtualMachine) -> some View {
+        let isActive = runtime.activeMachineID == machine.id
+
+        if isActive {
+            Button("正常关机") {
+                runtime.requestShutdown()
+            }
+            .disabled(!runtime.canRequestShutdown)
+        } else {
+            Button("启动") {
+                model.selectedMachineID = machine.id
+                model.start(machine)
+            }
+            .disabled(!runtime.canStart || model.qemuInstallation == nil)
+        }
+
+        Button("编辑配置…") {
+            model.beginEditing(machine)
+        }
+        .disabled(isActive)
+
+        Button("在 Finder 中显示") {
+            model.revealBundle(for: machine.id)
+        }
+
+        Divider()
+
+        Button("删除…", role: .destructive) {
+            model.requestDelete(machine)
+        }
+        .disabled(isActive)
     }
 
     private func state(for machine: VirtualMachine) -> VMRuntimeState {
@@ -95,6 +160,7 @@ struct RootView: View {
 private struct SidebarMachineRow: View {
     let machine: VirtualMachine
     let state: VMRuntimeState
+    let installerMissing: Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -113,6 +179,13 @@ private struct SidebarMachineRow: View {
             }
 
             Spacer(minLength: 8)
+
+            if installerMissing {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .help("找不到 Windows 安装 ISO 文件")
+            }
 
             Circle()
                 .fill(statusColor)

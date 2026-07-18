@@ -59,6 +59,19 @@ struct VMProvisioner {
         }
     }
 
+    /// 把稀疏磁盘扩容到配置中的新容量。只增不减：truncate 到更小的值
+    /// 会直接截断客体数据。
+    func growDisk(for machine: VirtualMachine) throws {
+        let url = store.layout.diskURL(for: machine.id)
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+
+        let target = UInt64(machine.diskSizeGiB) * Self.gibibyte
+        let currentSize = try handle.seekToEnd()
+        guard target > currentSize else { return }
+        try handle.truncate(atOffset: target)
+    }
+
     private func createSparseFile(at url: URL, size: UInt64) throws {
         guard fileManager.createFile(atPath: url.path, contents: nil) else {
             throw VMProvisioningError.couldNotCreateFile(url.path)

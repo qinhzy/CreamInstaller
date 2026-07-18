@@ -25,6 +25,7 @@ final class QEMUProcessController: ObservableObject {
     @Published private(set) var activeMachineID: UUID?
     @Published private(set) var lastMachineID: UUID?
     @Published private(set) var state: VMRuntimeState = .stopped
+    @Published private(set) var startedAt: Date?
     @Published private(set) var logText = ""
 
     private var process: Process?
@@ -144,6 +145,9 @@ final class QEMUProcessController: ObservableObject {
             guard !Task.isCancelled, let self else { return }
             if self.process != nil, self.state == .starting {
                 self.state = .running
+                if self.startedAt == nil {
+                    self.startedAt = Date()
+                }
             }
         }
 #endif
@@ -185,6 +189,18 @@ final class QEMUProcessController: ObservableObject {
         logText = ""
     }
 
+    /// 一台虚拟机被删除后，清掉它遗留的日志与失败状态显示。
+    func forget(machineID: UUID) {
+        guard activeMachineID != machineID else { return }
+        if lastMachineID == machineID {
+            lastMachineID = nil
+            logText = ""
+            if !state.isActive {
+                state = .stopped
+            }
+        }
+    }
+
     private func consumeQMPOutput(_ data: Data) {
         let text = String(decoding: data, as: UTF8.self)
         appendLog("[QMP] \(text)")
@@ -198,6 +214,9 @@ final class QEMUProcessController: ObservableObject {
             sendQMPCommand("qmp_capabilities")
             if state == .starting {
                 state = .running
+            }
+            if startedAt == nil {
+                startedAt = Date()
             }
         }
     }
@@ -276,6 +295,7 @@ final class QEMUProcessController: ObservableObject {
         logHandle = nil
         runtimePIDURL = nil
         activeMachineID = nil
+        startedAt = nil
         qmpCapabilitiesSent = false
         qmpGreetingBuffer = ""
         expectedTermination = false
