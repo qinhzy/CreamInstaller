@@ -164,9 +164,7 @@ private struct SidebarMachineRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "desktopcomputer")
-                .foregroundStyle(.secondary)
-                .frame(width: 18)
+            AppMarkChip(size: 30)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(machine.name)

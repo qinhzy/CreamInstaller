@@ -24,9 +24,7 @@ struct EditVMView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 30))
-                    .foregroundStyle(.tint)
+                AppMarkChip(systemImage: "slider.horizontal.3", size: 46)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("编辑虚拟机配置")

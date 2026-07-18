@@ -20,9 +20,7 @@ struct CreateVMView: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 14) {
-                Image(systemName: "plus.rectangle.on.rectangle")
-                    .font(.system(size: 30))
-                    .foregroundStyle(.tint)
+                AppMarkChip(systemImage: "plus", size: 46)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("新建 Windows 虚拟机")
