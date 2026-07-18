@@ -2,7 +2,7 @@
 """WinLift QEMU 冒烟测试（Linux / CI 专用）。
 
 用 `winlift-qemu-args`（与 App 完全相同的 QEMUCommandBuilder）生成 argv，
-只替换三个 macOS 专属值——hvf→tcg、host→cortex-a72、cocoa→none、
+只替换四个 macOS 专属值——hvf→tcg、host→cortex-a72、cocoa→none、
 coreaudio→none——然后对真实的 qemu-system-aarch64 执行完整生命周期：
 
   QMP greeting → qmp_capabilities → query-status → stop → cont

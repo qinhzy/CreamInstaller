@@ -35,10 +35,13 @@ public final class QEMUProcessController: ObservableObject {
     private var logHandle: FileHandle?
     private var runtimePIDURL: URL?
     private var startupGraceTask: Task<Void, Never>?
+    private var logFlushTask: Task<Void, Never>?
     private var qmpCapabilitiesSent = false
-    private var qmpGreetingBuffer = ""
+    private var qmpParser = QMPStreamParser()
     private var expectedTermination = false
+    private var pendingLogText = ""
     private let maximumLogCharacters = 60_000
+    private let logPublishIntervalNanoseconds: UInt64 = 250_000_000
 
     var canStart: Bool {
         process == nil
@@ -92,8 +95,11 @@ public final class QEMUProcessController: ObservableObject {
         lastMachineID = machine.id
         state = .starting
         logText = ""
+        pendingLogText = ""
+        logFlushTask?.cancel()
+        logFlushTask = nil
         qmpCapabilitiesSent = false
-        qmpGreetingBuffer = ""
+        qmpParser = QMPStreamParser()
         expectedTermination = false
         runtimePIDURL = layout.runtimePIDURL(for: machine.id)
         prepareLogFile(at: layout.logURL(for: machine.id))
@@ -140,7 +146,7 @@ public final class QEMUProcessController: ObservableObject {
         // QMP normally sends its greeting immediately. If a QEMU build delays
         // that greeting, the VM is still considered running after this grace period.
         startupGraceTask?.cancel()
-        startupGraceTask = Task { [weak self] in
+        startupGraceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled, let self else { return }
             if self.process != nil, self.state == .starting {
@@ -186,6 +192,9 @@ public final class QEMUProcessController: ObservableObject {
     }
 
     func clearLog() {
+        logFlushTask?.cancel()
+        logFlushTask = nil
+        pendingLogText = ""
         logText = ""
     }
 
@@ -204,19 +213,29 @@ public final class QEMUProcessController: ObservableObject {
     private func consumeQMPOutput(_ data: Data) {
         let text = String(decoding: data, as: UTF8.self)
         appendLog("[QMP] \(text)")
-        qmpGreetingBuffer += text
-        if qmpGreetingBuffer.count > 8_192 {
-            qmpGreetingBuffer = String(qmpGreetingBuffer.suffix(8_192))
-        }
 
-        if qmpGreetingBuffer.contains("\"QMP\""), !qmpCapabilitiesSent {
-            qmpCapabilitiesSent = true
-            sendQMPCommand("qmp_capabilities")
-            if state == .starting {
-                state = .running
-            }
-            if startedAt == nil {
-                startedAt = Date()
+        for message in qmpParser.consume(data) {
+            switch message {
+            case .greeting:
+                if !qmpCapabilitiesSent {
+                    qmpCapabilitiesSent = true
+                    sendQMPCommand("qmp_capabilities")
+                    if state == .starting {
+                        state = .running
+                    }
+                    if startedAt == nil {
+                        startedAt = Date()
+                    }
+                }
+
+            case let .event(event):
+                state = QMPStateReducer.state(after: message, currentState: state)
+                if event.uppercased() == "SHUTDOWN" {
+                    expectedTermination = true
+                }
+
+            case .commandReturn, .other:
+                break
             }
         }
     }
@@ -238,28 +257,50 @@ public final class QEMUProcessController: ObservableObject {
     }
 
     private func prepareLogFile(at url: URL) {
-        if !FileManager.default.fileExists(atPath: url.path) {
-            FileManager.default.createFile(atPath: url.path, contents: nil)
-        }
-
         do {
-            let handle = try FileHandle(forWritingTo: url)
-            try handle.seekToEnd()
-            logHandle = handle
+            logHandle = try QEMULogFile.openForAppending(at: url)
         } catch {
             logHandle = nil
-            logText += "[WinLift] 无法写入日志文件：\(error.localizedDescription)\n"
+            queueLogForDisplay("[WinLift] 无法写入日志文件：\(error.localizedDescription)\n")
         }
     }
 
     private func appendLog(_ text: String) {
-        logText += text
+        queueLogForDisplay(text)
+
+        guard let data = text.data(using: .utf8), let logHandle else { return }
+        do {
+            try logHandle.write(contentsOf: data)
+        } catch {
+            try? logHandle.close()
+            self.logHandle = nil
+            queueLogForDisplay("[WinLift] 日志文件写入失败：\(error.localizedDescription)\n")
+        }
+    }
+
+    private func queueLogForDisplay(_ text: String) {
+        pendingLogText += text
+        guard logFlushTask == nil else { return }
+
+        logFlushTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: self?.logPublishIntervalNanoseconds ?? 0)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.flushPendingLog()
+        }
+    }
+
+    private func flushPendingLog() {
+        logFlushTask = nil
+        guard !pendingLogText.isEmpty else { return }
+
+        logText += pendingLogText
+        pendingLogText = ""
         if logText.count > maximumLogCharacters {
             logText = String(logText.suffix(maximumLogCharacters))
-        }
-
-        if let data = text.data(using: .utf8) {
-            try? logHandle?.write(contentsOf: data)
         }
     }
 
@@ -278,6 +319,9 @@ public final class QEMUProcessController: ObservableObject {
     private func cleanUpPipesAndProcess() {
         startupGraceTask?.cancel()
         startupGraceTask = nil
+        logFlushTask?.cancel()
+        logFlushTask = nil
+        flushPendingLog()
         qmpOutput?.fileHandleForReading.readabilityHandler = nil
         standardError?.fileHandleForReading.readabilityHandler = nil
         try? qmpInput?.fileHandleForWriting.close()
@@ -297,7 +341,7 @@ public final class QEMUProcessController: ObservableObject {
         activeMachineID = nil
         startedAt = nil
         qmpCapabilitiesSent = false
-        qmpGreetingBuffer = ""
+        qmpParser = QMPStreamParser()
         expectedTermination = false
     }
 }

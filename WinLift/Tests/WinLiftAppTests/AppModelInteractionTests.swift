@@ -50,8 +50,9 @@ final class AppModelInteractionTests: XCTestCase {
     // MARK: - 创建
 
     @MainActor
-    func testCreateProvisionsBundleAndSelectsMachine() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testCreateProvisionsBundleAndSelectsMachine() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         XCTAssertEqual(model.machines.count, 1)
 
         let machine = try XCTUnwrap(model.machines.first)
@@ -68,29 +69,32 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testCreateWithoutISOFailsWithError() {
+    func testCreateWithoutISOFailsWithError() async {
         var draft = makeDraft()
         draft.installerISOURL = nil
 
-        XCTAssertFalse(model.createVM(from: draft))
+        let created = await model.createVM(from: draft)
+        XCTAssertFalse(created)
         XCTAssertNotNil(model.errorMessage)
         XCTAssertTrue(model.machines.isEmpty)
     }
 
     @MainActor
-    func testCreateWithMissingISOFileFailsWithError() {
+    func testCreateWithMissingISOFileFailsWithError() async {
         var draft = makeDraft()
         draft.installerISOURL = root.appendingPathComponent("不存在.iso")
 
-        XCTAssertFalse(model.createVM(from: draft))
+        let created = await model.createVM(from: draft)
+        XCTAssertFalse(created)
         XCTAssertNotNil(model.errorMessage)
     }
 
     // MARK: - 删除
 
     @MainActor
-    func testDeleteMovesBundleAwayAfterConfirmation() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testDeleteMovesBundleAwayAfterConfirmation() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
         let bundlePath = store.layout.bundleURL(for: machine.id).path
 
@@ -104,8 +108,9 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testDeleteIsBlockedWhileDetachedQEMUOwnsPidfile() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testDeleteIsBlockedWhileDetachedQEMUOwnsPidfile() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         // 用测试进程自己的 PID 模拟一个仍然存活的游离 QEMU。
@@ -124,8 +129,9 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testStalePidfileDoesNotBlockDeletion() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testStalePidfileDoesNotBlockDeletion() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         // macOS 的 PID 上限是 99998；999999 一定不存在。
@@ -142,8 +148,9 @@ final class AppModelInteractionTests: XCTestCase {
     // MARK: - 编辑
 
     @MainActor
-    func testApplyEditRenamesAndGrowsDisk() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testApplyEditRenamesAndGrowsDisk() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         model.beginEditing(machine)
@@ -167,8 +174,9 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testApplyEditRejectsDiskShrink() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testApplyEditRejectsDiskShrink() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         model.beginEditing(machine)
@@ -181,11 +189,33 @@ final class AppModelInteractionTests: XCTestCase {
         XCTAssertEqual(try apparentDiskSize(of: machine), 64 << 30)
     }
 
+    @MainActor
+    func testResetEFIVariablesRebuildsStoppedMachineFlash() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
+        let machine = try XCTUnwrap(model.machines.first)
+        let url = store.layout.efiVariablesURL(for: machine.id)
+        try Data(repeating: 0, count: 64).write(to: url)
+
+        model.resetEFIVariables(for: machine)
+
+        XCTAssertNil(model.errorMessage)
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        XCTAssertEqual(
+            (attributes[.size] as? NSNumber)?.uint64Value,
+            VMProvisioner.efiVariablesSizeBytes
+        )
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        XCTAssertEqual(try handle.read(upToCount: 1), Data([0xFF]))
+    }
+
     // MARK: - 安装介质
 
     @MainActor
-    func testReplaceISORejectsNonISOFile() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testReplaceISORejectsNonISOFile() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         let imageURL = root.appendingPathComponent("disk.img")
@@ -198,8 +228,9 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testReplaceISOPersistsNewPath() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testReplaceISOPersistsNewPath() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
 
         let newISO = root.appendingPathComponent("Windows11_新版.iso")
@@ -213,12 +244,16 @@ final class AppModelInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testInstallerMissingDetection() throws {
-        XCTAssertTrue(model.createVM(from: makeDraft()))
+    func testInstallerMissingDetection() async throws {
+        let created = await model.createVM(from: makeDraft())
+        XCTAssertTrue(created)
         let machine = try XCTUnwrap(model.machines.first)
         XCTAssertFalse(model.isInstallerMissing(for: machine))
 
         try FileManager.default.removeItem(at: isoURL)
+        // 侧栏读取缓存，不会因为一次 View 重绘就重新 stat 文件。
+        XCTAssertFalse(model.isInstallerMissing(for: try XCTUnwrap(model.machines.first)))
+        model.reload()
         XCTAssertTrue(model.isInstallerMissing(for: try XCTUnwrap(model.machines.first)))
 
         // 弹出 ISO 后不再视为缺失。

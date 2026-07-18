@@ -25,6 +25,26 @@ jobs:
         run: swift test
       - name: Build app bundle and verify launch
         run: ./script/build_and_run.sh --verify
+      - name: Capture rendered WinLift window
+        run: |
+          sleep 4
+          /usr/bin/osascript -e 'tell application "WinLift" to activate' || true
+          screenshot="$RUNNER_TEMP/WinLift-main-window.png"
+          window_id="$(/usr/bin/osascript -e 'tell application "System Events" to tell process "WinLift" to get value of attribute "AXWindowNumber" of window 1' 2>/dev/null || true)"
+          if [[ "$window_id" =~ ^[0-9]+$ ]]; then
+            /usr/sbin/screencapture -x -o -l "$window_id" "$screenshot" \
+              || /usr/sbin/screencapture -x "$screenshot"
+          else
+            /usr/sbin/screencapture -x "$screenshot"
+          fi
+          test -s "$screenshot"
+      - name: Upload WinLift UI screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: winlift-ui-${{ github.run_number }}
+          path: ${{ runner.temp }}/WinLift-main-window.png
+          if-no-files-found: error
       - name: Shut down app
         if: always()
         run: pkill -x WinLift || true

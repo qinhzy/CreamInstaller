@@ -11,16 +11,16 @@ enum VMProvisioningError: LocalizedError {
         case .bundleAlreadyExists:
             return "同一 ID 的虚拟机目录已经存在。"
         case let .couldNotCreateFile(path):
-            return "无法创建虚拟磁盘文件：\(path)"
+            return "无法创建虚拟机文件：\(path)"
         case .missingArtifacts:
             return "虚拟磁盘或 EFI 状态文件缺失，无法启动。"
         }
     }
 }
 
-struct VMProvisioner {
+struct VMProvisioner: @unchecked Sendable {
     private static let gibibyte = UInt64(1_073_741_824)
-    private static let defaultEFIVariablesSize = UInt64(64 * 1_024 * 1_024)
+    static let efiVariablesSizeBytes = UInt64(64 * 1_024 * 1_024)
 
     let store: VMFileStore
     private let fileManager: FileManager
@@ -59,6 +59,13 @@ struct VMProvisioner {
         }
     }
 
+    func resetEFIVariables(for machine: VirtualMachine) throws {
+        try createEFIVariablesFile(
+            at: store.layout.efiVariablesURL(for: machine.id),
+            replacingExistingFile: true
+        )
+    }
+
     /// 把稀疏磁盘扩容到配置中的新容量。只增不减：truncate 到更小的值
     /// 会直接截断客体数据。
     func growDisk(for machine: VirtualMachine) throws {
@@ -82,18 +89,27 @@ struct VMProvisioner {
         try handle.truncate(atOffset: size)
     }
 
-    private func createEFIVariablesFile(at url: URL) throws {
-        guard fileManager.createFile(atPath: url.path, contents: nil) else {
-            throw VMProvisioningError.couldNotCreateFile(url.path)
+    private func createEFIVariablesFile(
+        at url: URL,
+        replacingExistingFile: Bool = false
+    ) throws {
+        let handle: FileHandle
+        if replacingExistingFile, fileManager.fileExists(atPath: url.path) {
+            handle = try FileHandle(forWritingTo: url)
+            try handle.truncate(atOffset: 0)
+        } else {
+            guard fileManager.createFile(atPath: url.path, contents: nil) else {
+                throw VMProvisioningError.couldNotCreateFile(url.path)
+            }
+            handle = try FileHandle(forWritingTo: url)
         }
 
         // A newly erased pflash contains 0xFF rather than zero bytes. EDK2 can
         // initialize its variable store from this erased-flash state.
-        let handle = try FileHandle(forWritingTo: url)
         defer { try? handle.close() }
 
         let chunk = Data(repeating: 0xFF, count: 1_024 * 1_024)
-        let chunkCount = Int(Self.defaultEFIVariablesSize / UInt64(chunk.count))
+        let chunkCount = Int(Self.efiVariablesSizeBytes / UInt64(chunk.count))
         for _ in 0..<chunkCount {
             try handle.write(contentsOf: chunk)
         }

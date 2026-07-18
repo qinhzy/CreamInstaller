@@ -72,6 +72,40 @@ final class ProvisionerAndStoreTests: XCTestCase {
         XCTAssertEqual(try apparentSize(diskURL), 96 << 30)
     }
 
+    func testResetEFIVariablesRebuildsErased64MiBFlash() throws {
+        let machine = makeMachine()
+        try provisioner.provision(machine)
+        let url = store.layout.efiVariablesURL(for: machine.id)
+        try Data(repeating: 0, count: 32).write(to: url)
+
+        try provisioner.resetEFIVariables(for: machine)
+
+        XCTAssertEqual(try apparentSize(url), VMProvisioner.efiVariablesSizeBytes)
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        XCTAssertEqual(try handle.read(upToCount: 1), Data([0xFF]))
+        try handle.seek(toOffset: VMProvisioner.efiVariablesSizeBytes - 1)
+        XCTAssertEqual(try handle.read(upToCount: 1), Data([0xFF]))
+    }
+
+    func testOversizedQEMULogRotatesBeforeAppending() throws {
+        let logURL = root.appendingPathComponent("qemu.log")
+        try Data("previous-log".utf8).write(to: logURL)
+
+        let handle = try QEMULogFile.openForAppending(
+            at: logURL,
+            rotationThresholdBytes: 5
+        )
+        try handle.write(contentsOf: Data("new-log".utf8))
+        try handle.close()
+
+        XCTAssertEqual(try String(contentsOf: logURL, encoding: .utf8), "new-log")
+        XCTAssertEqual(
+            try String(contentsOf: logURL.appendingPathExtension("old"), encoding: .utf8),
+            "previous-log"
+        )
+    }
+
     func testStoreRoundTripsConfiguration() throws {
         let machine = makeMachine()
         try provisioner.provision(machine)

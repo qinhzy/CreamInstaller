@@ -9,6 +9,7 @@ struct VMDetailView: View {
     let machine: VirtualMachine
 
     @State private var isConfirmingForceStop = false
+    @State private var isConfirmingEFIReset = false
 
     var body: some View {
         Form {
@@ -71,6 +72,17 @@ struct VMDetailView: View {
             Button("取消", role: .cancel) {}
         } message: {
             Text("这相当于直接断电：未写入磁盘的数据会丢失，可能损坏 Windows 文件系统。优先使用“关机”。")
+        }
+        .confirmationDialog(
+            "重置 EFI 变量？",
+            isPresented: $isConfirmingEFIReset
+        ) {
+            Button("重置 EFI 变量", role: .destructive) {
+                model.resetEFIVariables(for: machine)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将重建 64 MiB 的 EFI 变量存储。Windows 磁盘不会被删除，但自定义 UEFI 启动项和固件设置会恢复初始状态。")
         }
     }
 
@@ -289,6 +301,16 @@ struct VMDetailView: View {
             Button("在 Finder 中显示虚拟机文件") {
                 model.revealBundle(for: machine.id)
             }
+
+            Button("查看日志文件") {
+                model.openLogFile(for: machine)
+            }
+            .disabled(isThisMachineActive)
+
+            Button("重置 EFI 变量…") {
+                isConfirmingEFIReset = true
+            }
+            .disabled(isThisMachineActive)
 
             Divider()
 

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum VMRuntimeState: Equatable {
+public enum VMRuntimeState: Equatable, Sendable {
     case stopped
     case starting
     case running

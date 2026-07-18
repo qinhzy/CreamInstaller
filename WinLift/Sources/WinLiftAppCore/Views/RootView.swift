@@ -35,6 +35,10 @@ public struct RootView: View {
                             .foregroundStyle(.orange)
                     }
                 }
+
+                Section("QEMU 状态") {
+                    QEMUStatusRow(model: model)
+                }
             }
             .listStyle(.sidebar)
             .navigationTitle("WinLift")
@@ -154,6 +158,56 @@ public struct RootView: View {
             return runtime.state
         }
         return .stopped
+    }
+}
+
+private struct QEMUStatusRow: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Circle()
+                .fill(model.qemuInstallation == nil ? Color.orange : Color.green)
+                .frame(width: 7, height: 7)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .lineLimit(1)
+
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 4)
+
+            Button {
+                model.refreshQEMUInstallation()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.borderless)
+            .help("重新检测 QEMU")
+        }
+        .help(model.qemuProblem ?? model.qemuVersionProblem ?? "QEMU arm64 与 64 MiB EDK2 固件均已通过体检")
+    }
+
+    private var title: String {
+        if let version = model.qemuVersion {
+            return "QEMU \(version)"
+        }
+        return model.qemuInstallation == nil ? "QEMU 不可用" : "QEMU 已找到"
+    }
+
+    private var detail: String {
+        if let problem = model.qemuProblem {
+            return problem
+        }
+        if let problem = model.qemuVersionProblem {
+            return problem
+        }
+        return "arm64 · HVF · EDK2 64 MiB"
     }
 }
 

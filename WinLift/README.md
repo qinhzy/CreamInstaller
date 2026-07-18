@@ -13,7 +13,7 @@ Apple 的 `Virtualization.framework` 主要面向 macOS 和 Linux 客体。WinLi
 - Apple Silicon Mac（M1 或更新）
 - macOS 14 或更新版本
 - Xcode 15+ 或 Command Line Tools（提供 Swift 5.9+）
-- [Homebrew QEMU](https://formulae.brew.sh/formula/qemu)
+- [Homebrew QEMU](https://formulae.brew.sh/formula/qemu)（必须包含 arm64 切片，EDK2 固件必须为 64 MiB）
 - [Windows 11 ARM64 ISO](https://www.microsoft.com/software-download/windows11arm64)
 
 安装 QEMU：
@@ -48,11 +48,12 @@ swift test
   输出 WinLift 实际用于启动 QEMU 的完整参数（每行一个），与应用共用同一份
   `QEMUCommandBuilder`，便于排障和脚本验证。
 - `script/qemu_smoke_linux.py`（Linux/CI 专用）：用真实的 `qemu-system-aarch64` + EDK2
-  固件按上面生成的参数执行完整 QMP 生命周期冒烟测试，只替换 `hvf`/`cocoa`/`coreaudio`
-  三个 macOS 专属值，其余参数与 macOS 上完全一致。
+  固件按上面生成的参数执行完整 QMP 生命周期冒烟测试，只替换 `hvf`、`host`、
+  `cocoa`、`coreaudio` 四个 macOS 专属值，其余参数与 macOS 上完全一致。
 - 仓库根目录的 `.github/workflows/winlift.yml` 会在 macos-14（Apple Silicon）上运行
   `swift test` 与 `./script/build_and_run.sh --verify`，并在 Linux 上运行核心测试与
-  QEMU 冒烟测试。实际执行记录见 `Documentation/VERIFICATION.md`。
+  QEMU 冒烟测试；macOS job 还会在 App 启动后截取真实主窗口并上传 PNG artifact。
+  实际执行记录见 `Documentation/VERIFICATION.md`。
 
 ## 安装 Windows
 
@@ -82,6 +83,7 @@ reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /
     ├── disk.raw
     ├── efi-vars.fd
     ├── qemu.log
+    ├── qemu.log.old      # qemu.log 超过 5 MiB 后的上一轮日志
     └── qemu.pid          # 仅运行时存在
 ```
 
@@ -93,16 +95,20 @@ reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /
 - VM 创建、编辑（名称/CPU/内存/磁盘扩容）、删除（移到废纸篓，二次确认）
 - VM 配置校验和 JSON 持久化
 - 稀疏 RAW 磁盘与持久化 EFI 变量存储；磁盘只增不减的在线扩容
-- Homebrew、MacPorts 和环境变量形式的 QEMU/UEFI 自动探测
+- VM 创建在后台完成，64 MiB EFI 初始化期间表单会显示真实进度且阻止重复提交
+- Homebrew、MacPorts 和环境变量形式的 QEMU/UEFI 自动探测；检查 QEMU arm64 Mach-O 切片、64 MiB 固件并显示 QEMU 版本
 - ARM64 + HVF 启动参数
 - NVMe、NEC xHCI、USB 键鼠、USB RNDIS 网络、USB 音频、RAM framebuffer
 - ISO 挂载/弹出、更换 ISO（按钮或直接拖放 .iso）、ISO 文件缺失警示
+- 分片安全的 QMP 行/JSON 解析；STOP、RESUME、SHUTDOWN、POWERDOWN 事件驱动暂停、运行和关机状态
 - QMP 暂停、恢复、ACPI 关机与强制停止（强制停止有确认对话框）
 - 运行 PID 防重入；运行中退出可选“正常关机后退出”或“强制停止并退出”
 - 完整菜单栏命令与快捷键（⌘N 新建、⌘R 启动、⌘P 暂停/继续、⇧⌘R 关机、⌘I 编辑、⌘⌫ 删除）、侧栏右键菜单
-- 运行时长显示、有界运行日志（自动滚动、一键复制）
+- 运行时长显示、有界运行日志（约 250 ms 批量刷新、自动滚动、一键复制）；qemu.log 超过 5 MiB 自动轮转
+- 停止状态可重置 64 MiB EFI 变量存储、用系统默认应用查看 qemu.log
+- ISO 缺失状态按加载/替换/挂载切换/启动节点缓存刷新，侧栏重绘不再重复访问文件系统
 - 安装小贴士卡片：TPM/Secure Boot 检查绕过命令一键复制
-- 核心命令生成、路径转义、配置校验和存储布局测试
+- 51 项核心/App 测试，覆盖命令生成、QMP 分片与状态迁移、Mach-O/fat 解析、版本/固件体检、主机资源校验、存储和交互逻辑
 
 ## 当前限制
 

@@ -124,8 +124,10 @@ struct CreateVMView: View {
                 }
 
                 Button("创建") {
-                    if model.createVM(from: draft) {
-                        dismiss()
+                    Task { @MainActor in
+                        if await model.createVM(from: draft) {
+                            dismiss()
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)

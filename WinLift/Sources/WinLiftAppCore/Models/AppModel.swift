@@ -10,6 +10,8 @@ enum AppModelError: LocalizedError {
     case detachedQEMUStillRunning(Int32)
     case machineIsRunning
     case diskShrinkNotSupported
+    case logFileMissing
+    case logFileCouldNotOpen
 
     var errorDescription: String? {
         switch self {
@@ -21,6 +23,10 @@ enum AppModelError: LocalizedError {
             return "虚拟机正在运行。请先正常关机，再执行这个操作。"
         case .diskShrinkNotSupported:
             return "虚拟磁盘只支持扩容，不支持缩小。"
+        case .logFileMissing:
+            return "这台虚拟机还没有 qemu.log 日志文件。"
+        case .logFileCouldNotOpen:
+            return "无法使用默认应用打开 qemu.log。"
         }
     }
 }
@@ -45,6 +51,9 @@ public final class AppModel: ObservableObject {
     @Published private(set) var isCreatingVM = false
     @Published private(set) var qemuInstallation: QEMUInstallation?
     @Published private(set) var qemuProblem: String?
+    @Published private(set) var qemuVersion: String?
+    @Published private(set) var qemuVersionProblem: String?
+    @Published private(set) var installerMissingMachineIDs = Set<UUID>()
     @Published var errorMessage: String?
     @Published var noticeMessage: String?
 
@@ -96,6 +105,7 @@ public final class AppModel: ObservableObject {
         do {
             let result = try store.loadAll()
             machines = result.machines
+            refreshInstallerMissingCache()
             if selectedMachineID == nil || !machines.contains(where: { $0.id == selectedMachineID }) {
                 selectedMachineID = machines.first?.id
             }
@@ -107,15 +117,25 @@ public final class AppModel: ObservableObject {
 
     public func refreshQEMUInstallation() {
         do {
-            qemuInstallation = try QEMUDiscovery.discover(fileManager: fileManager)
+            let installation = try QEMUDiscovery.discover(fileManager: fileManager)
+            qemuInstallation = installation
             qemuProblem = nil
+            do {
+                qemuVersion = try QEMUVersionProbe.version(at: installation.executableURL)
+                qemuVersionProblem = nil
+            } catch {
+                qemuVersion = nil
+                qemuVersionProblem = error.localizedDescription
+            }
         } catch {
             qemuInstallation = nil
             qemuProblem = error.localizedDescription
+            qemuVersion = nil
+            qemuVersionProblem = nil
         }
     }
 
-    func createVM(from draft: VMCreationDraft) -> Bool {
+    func createVM(from draft: VMCreationDraft) async -> Bool {
         guard !isCreatingVM else { return false }
         isCreatingVM = true
         defer { isCreatingVM = false }
@@ -130,12 +150,15 @@ public final class AppModel: ObservableObject {
         )
 
         do {
-            try VMValidator.validate(machine)
+            try validate(machine)
             if let isoPath = machine.installerISOPath,
                !fileManager.fileExists(atPath: isoPath) {
                 throw AppModelError.installerMissing(isoPath)
             }
-            try provisioner.provision(machine)
+            let provisioner = self.provisioner
+            try await Task.detached(priority: .userInitiated) { [provisioner, machine] in
+                try provisioner.provision(machine)
+            }.value
             reload()
             selectedMachineID = machine.id
             return true
@@ -157,13 +180,13 @@ public final class AppModel: ObservableObject {
         }
 
         do {
-            try VMValidator.validate(machine)
+            try validate(machine)
             try provisioner.validateArtifacts(for: machine)
             try ensureNoDetachedProcess(for: machine)
 
-            if machine.attachInstaller,
-               let isoPath = machine.installerISOPath,
-               !fileManager.fileExists(atPath: isoPath) {
+            refreshInstallerMissingStatus(for: machine)
+
+            if isInstallerMissing(for: machine), let isoPath = machine.installerISOPath {
                 throw AppModelError.installerMissing(isoPath)
             }
 
@@ -187,19 +210,17 @@ public final class AppModel: ObservableObject {
         updated.attachInstaller = isAttached
 
         do {
-            try VMValidator.validate(updated)
+            try validate(updated)
             try store.save(updated)
             machines[index] = updated
+            refreshInstallerMissingStatus(for: updated)
         } catch {
             errorMessage = "配置保存失败：\(error.localizedDescription)"
         }
     }
 
     func isInstallerMissing(for machine: VirtualMachine) -> Bool {
-        guard machine.attachInstaller, let path = machine.installerISOPath, !path.isEmpty else {
-            return false
-        }
-        return !fileManager.fileExists(atPath: path)
+        installerMissingMachineIDs.contains(machine.id)
     }
 
     func replaceInstallerISO(with url: URL, for machineID: UUID) {
@@ -217,9 +238,10 @@ public final class AppModel: ObservableObject {
         updated.installerISOPath = url.path
 
         do {
-            try VMValidator.validate(updated)
+            try validate(updated)
             try store.save(updated)
             machines[index] = updated
+            refreshInstallerMissingStatus(for: updated)
         } catch {
             errorMessage = "更换 ISO 失败：\(error.localizedDescription)"
         }
@@ -266,12 +288,13 @@ public final class AppModel: ObservableObject {
         }
 
         do {
-            try VMValidator.validate(updated)
+            try validate(updated)
             if updated.diskSizeGiB > current.diskSizeGiB {
                 try provisioner.growDisk(for: updated)
             }
             try store.save(updated)
             machines[index] = updated
+            refreshInstallerMissingStatus(for: updated)
             return true
         } catch {
             errorMessage = "保存配置失败：\(error.localizedDescription)"
@@ -310,6 +333,38 @@ public final class AppModel: ObservableObject {
         ])
     }
 
+    func resetEFIVariables(for machine: VirtualMachine) {
+        guard runtime.activeMachineID != machine.id else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return
+        }
+
+        do {
+            try ensureNoDetachedProcess(for: machine)
+            try provisioner.resetEFIVariables(for: machine)
+            noticeMessage = "已重置“\(machine.name)”的 EFI 变量。"
+        } catch {
+            errorMessage = "重置 EFI 变量失败：\(error.localizedDescription)"
+        }
+    }
+
+    func openLogFile(for machine: VirtualMachine) {
+        guard runtime.activeMachineID != machine.id else {
+            errorMessage = AppModelError.machineIsRunning.localizedDescription
+            return
+        }
+
+        let url = store.layout.logURL(for: machine.id)
+        guard fileManager.fileExists(atPath: url.path) else {
+            errorMessage = AppModelError.logFileMissing.localizedDescription
+            return
+        }
+        guard NSWorkspace.shared.open(url) else {
+            errorMessage = AppModelError.logFileCouldNotOpen.localizedDescription
+            return
+        }
+    }
+
     func openQEMUInstallPage() {
         guard let url = URL(string: "https://formulae.brew.sh/formula/qemu") else { return }
         NSWorkspace.shared.open(url)
@@ -324,6 +379,37 @@ public final class AppModel: ObservableObject {
 
     func dismissError() {
         errorMessage = nil
+    }
+
+    func refreshInstallerMissingStatus(for machine: VirtualMachine) {
+        if installerIsMissingOnDisk(for: machine) {
+            installerMissingMachineIDs.insert(machine.id)
+        } else {
+            installerMissingMachineIDs.remove(machine.id)
+        }
+    }
+
+    private func refreshInstallerMissingCache() {
+        installerMissingMachineIDs = Set(
+            machines.lazy
+                .filter { installerIsMissingOnDisk(for: $0) }
+                .map(\.id)
+        )
+    }
+
+    private func installerIsMissingOnDisk(for machine: VirtualMachine) -> Bool {
+        guard machine.attachInstaller, let path = machine.installerISOPath, !path.isEmpty else {
+            return false
+        }
+        return !fileManager.fileExists(atPath: path)
+    }
+
+    private func validate(_ machine: VirtualMachine) throws {
+        try VMValidator.validate(
+            machine,
+            hostProcessorCount: hostResources.processorCount,
+            hostMemoryGiB: hostResources.memoryGiB
+        )
     }
 
     private func ensureNoDetachedProcess(for machine: VirtualMachine) throws {

@@ -11,6 +11,7 @@
 
 - `swift test`：编译全部 target（WinLiftCore、WinLift App、winlift-qemu-args、测试）并运行完整 XCTest 套件。
 - `./script/build_and_run.sh --verify`：SwiftPM 构建、生成 `dist/WinLift.app`、adhoc 签名、`open -n` 启动并确认进程存活。
+- App 存活后等待约 4 秒，优先按窗口 ID 截取 WinLift 主窗口，无法取得窗口 ID 时回退为全屏截图；PNG 由 `actions/upload-artifact@v4` 上传。
 
 结果见下方"CI 运行记录"。
 
@@ -22,7 +23,7 @@
 ## 二、QEMU 参数与生命周期冒烟测试（真实 QEMU）
 
 `script/qemu_smoke_linux.py` 使用 `swift run winlift-qemu-args`（与 App 完全相同的
-`QEMUCommandBuilder`）生成 argv，只替换三个 macOS 专属值（`hvf`→`tcg`、
+`QEMUCommandBuilder`）生成 argv，只替换四个 macOS 专属值（`hvf`→`tcg`、
 `host`→`cortex-a72`、`cocoa`→`none`、`coreaudio`→`none`），其余参数逐字节一致，
 然后对真实的 `qemu-system-aarch64` + EDK2 固件执行：
 
@@ -76,8 +77,7 @@ HVF 加速路径（`-accel hvf -cpu host`）无法在任何 CI/虚拟化环境�
 （GitHub 的 macOS runner 本身是虚拟机，不支持嵌套虚拟化）；
 但除这两个值外的全部参数已经由第二节的真实 QEMU 冒烟测试覆盖。
 
-另外说明：交互**逻辑**（创建、删除、编辑扩容、换 ISO、缺失检测、
-pidfile 拦截）已由 WinLiftAppTests 在 macOS CI 上自动化覆盖；
-SwiftUI **视图层**的验证深度仍是"编译通过 + App 成功启动"——
-按钮点击到视觉呈现之间的链路（SwiftPM 不支持 XCUITest bundle）
-需要在真机上人工过一遍。
+另外说明：交互**逻辑**（异步创建、删除、编辑扩容、换 ISO、缺失缓存、
+EFI 重置、pidfile 拦截）由 WinLiftAppTests 在 macOS CI 上自动化覆盖；
+SwiftUI **视图层**自动验证到“编译通过 + App 成功启动 + 主窗口真实截图 artifact”。
+按钮点击到后续视觉呈现之间的链路（SwiftPM 不支持 XCUITest bundle）仍需在真机上人工过一遍。

@@ -15,6 +15,8 @@ public enum QEMUDiscoveryError: LocalizedError, Equatable, Sendable {
     case firmwareNotFound
     case invalidExecutableOverride(String)
     case invalidFirmwareOverride(String)
+    case intelExecutableOnAppleSilicon
+    case invalidFirmwareSize(expectedBytes: UInt64, actualBytes: UInt64)
 
     public var errorDescription: String? {
         switch self {
@@ -26,11 +28,19 @@ public enum QEMUDiscoveryError: LocalizedError, Equatable, Sendable {
             return "WINLIFT_QEMU_SYSTEM 指向的文件不可执行：\(path)"
         case let .invalidFirmwareOverride(path):
             return "WINLIFT_QEMU_FIRMWARE 指向的固件不可读取：\(path)"
+        case .intelExecutableOnAppleSilicon:
+            return "检测到 Intel 版 QEMU，HVF 不可用，请安装 arm64 版。"
+        case let .invalidFirmwareSize(expectedBytes, actualBytes):
+            let expectedMiB = expectedBytes / 1_048_576
+            let actualMiB = actualBytes / 1_048_576
+            return "QEMU 固件尺寸必须为 \(expectedMiB) MiB，当前为 \(actualMiB) MiB。请重新安装 QEMU。"
         }
     }
 }
 
 public enum QEMUDiscovery {
+    public static let expectedFirmwareSizeBytes = UInt64(64 * 1_024 * 1_024)
+
     public static func discover(
         fileManager: FileManager = .default,
         environment: [String: String] = ProcessInfo.processInfo.environment
@@ -50,6 +60,10 @@ public enum QEMUDiscovery {
             executableURL = discovered
         }
 
+#if os(macOS) && arch(arm64)
+        try validateExecutableArchitecture(at: executableURL, requiresARM64: true)
+#endif
+
         let firmwareURL: URL
         if let override = environment["WINLIFT_QEMU_FIRMWARE"], !override.isEmpty {
             guard fileManager.isReadableFile(atPath: override) else {
@@ -64,10 +78,35 @@ public enum QEMUDiscovery {
             firmwareURL = discovered
         }
 
+        let resolvedFirmwareURL = firmwareURL.resolvingSymlinksInPath()
+        let attributes = try fileManager.attributesOfItem(atPath: resolvedFirmwareURL.path)
+        let firmwareSize = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+        guard firmwareSize == expectedFirmwareSizeBytes else {
+            throw QEMUDiscoveryError.invalidFirmwareSize(
+                expectedBytes: expectedFirmwareSizeBytes,
+                actualBytes: firmwareSize
+            )
+        }
+
         return QEMUInstallation(
             executableURL: executableURL.resolvingSymlinksInPath(),
-            firmwareURL: firmwareURL.resolvingSymlinksInPath()
+            firmwareURL: resolvedFirmwareURL
         )
+    }
+
+    /// Unknown wrappers are left to normal process launch diagnostics; a
+    /// positively identified x86_64-only Mach-O gets the actionable HVF error.
+    public static func validateExecutableArchitecture(
+        at executableURL: URL,
+        requiresARM64: Bool
+    ) throws {
+        guard requiresARM64,
+              let architectures = try? MachOInspector.architectures(at: executableURL),
+              !architectures.contains(.arm64),
+              architectures.contains(.x86_64) else {
+            return
+        }
+        throw QEMUDiscoveryError.intelExecutableOnAppleSilicon
     }
 
     public static func executableCandidates(environment: [String: String]) -> [URL] {

@@ -38,7 +38,8 @@ public enum VMValidator {
 
     public static func validate(
         _ machine: VirtualMachine,
-        hostProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount
+        hostProcessorCount: Int = ProcessInfo.processInfo.activeProcessorCount,
+        hostMemoryGiB: Int = Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824)
     ) throws {
         let trimmedName = machine.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else {
@@ -58,8 +59,13 @@ public enum VMValidator {
         guard cpuRange.contains(machine.cpuCount) else {
             throw VMValidationError.invalidCPUCount(allowed: cpuRange)
         }
-        guard memoryRange.contains(machine.memorySizeGiB) else {
-            throw VMValidationError.invalidMemorySize(allowed: memoryRange)
+        let maximumMemoryGiB = max(
+            memoryRange.lowerBound,
+            min(hostMemoryGiB, memoryRange.upperBound)
+        )
+        let allowedMemoryRange = memoryRange.lowerBound...maximumMemoryGiB
+        guard allowedMemoryRange.contains(machine.memorySizeGiB) else {
+            throw VMValidationError.invalidMemorySize(allowed: allowedMemoryRange)
         }
         guard diskRange.contains(machine.diskSizeGiB) else {
             throw VMValidationError.invalidDiskSize(allowed: diskRange)
