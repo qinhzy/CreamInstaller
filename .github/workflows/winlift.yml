@@ -29,6 +29,9 @@ jobs:
         run: |
           sleep 4
           /usr/bin/osascript -e 'tell application "WinLift" to activate' || true
+          # Activation can trigger the first full SwiftUI draw on hosted runners.
+          # Give that draw a brief stabilization window before capturing pixels.
+          sleep 2
           screenshot="$RUNNER_TEMP/WinLift-main-window.png"
           window_id="$(/usr/bin/osascript -e 'tell application "System Events" to tell process "WinLift" to get value of attribute "AXWindowNumber" of window 1' 2>/dev/null || true)"
           if [[ "$window_id" =~ ^[0-9]+$ ]]; then
