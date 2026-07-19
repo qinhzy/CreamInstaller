@@ -48,6 +48,15 @@ jobs:
           name: winlift-ui-${{ github.run_number }}
           path: ${{ runner.temp }}/WinLift-main-window.png
           if-no-files-found: error
+      - name: Emit screenshot as base64 for log-only reviewers
+        if: always()
+        run: |
+          screenshot="$RUNNER_TEMP/WinLift-main-window.png"
+          if [[ -s "$screenshot" ]]; then
+            echo "::group::WinLift-main-window.png.b64"
+            base64 -i "$screenshot" | fold -w 3600 | sed 's/^/B64:/'
+            echo "::endgroup::"
+          fi
       - name: Shut down app
         if: always()
         run: pkill -x WinLift || true
