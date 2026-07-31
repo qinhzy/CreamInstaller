@@ -70,6 +70,8 @@ namespace CreamInstaller.Forms
             cancelButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             cancelButton.AutoSize = true;
             cancelButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            cancelButton.AccessibleDescription = "Cancel the current scan or setup operation";
+            cancelButton.CausesValidation = false;
             cancelButton.Location = new System.Drawing.Point(12, 326);
             cancelButton.Name = "cancelButton";
             cancelButton.Padding = new Padding(12, 0, 12, 0);
@@ -221,6 +223,8 @@ namespace CreamInstaller.Forms
             // progressBar
             // 
             progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressBar.AccessibleDescription = "Progress for the current scan or setup operation";
+            progressBar.AccessibleName = "Current operation progress";
             progressBar.Location = new System.Drawing.Point(12, 266);
             progressBar.Name = "progressBar";
             progressBar.Size = new System.Drawing.Size(560, 23);
@@ -229,6 +233,8 @@ namespace CreamInstaller.Forms
             // progressLabel
             // 
             progressLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressLabel.AccessibleName = "Current operation";
+            progressLabel.AutoEllipsis = true;
             progressLabel.Location = new System.Drawing.Point(12, 224);
             progressLabel.Name = "progressLabel";
             progressLabel.Size = new System.Drawing.Size(560, 15);
@@ -268,6 +274,8 @@ namespace CreamInstaller.Forms
             // progressLabelGames
             // 
             progressLabelGames.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressLabelGames.AccessibleName = "Games remaining";
+            progressLabelGames.AutoEllipsis = true;
             progressLabelGames.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             progressLabelGames.Location = new System.Drawing.Point(12, 239);
             progressLabelGames.Name = "progressLabelGames";
@@ -278,6 +286,8 @@ namespace CreamInstaller.Forms
             // progressLabelDLCs
             // 
             progressLabelDLCs.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressLabelDLCs.AccessibleName = "DLC items remaining";
+            progressLabelDLCs.AutoEllipsis = true;
             progressLabelDLCs.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
             progressLabelDLCs.Location = new System.Drawing.Point(12, 251);
             progressLabelDLCs.Name = "progressLabelDLCs";
@@ -387,6 +397,7 @@ namespace CreamInstaller.Forms
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            CancelButton = cancelButton;
             ClientSize = new System.Drawing.Size(584, 361);
             Controls.Add(loadKoaloaderButton);
             Controls.Add(saveKoaloaderButton);
@@ -453,4 +464,3 @@ namespace CreamInstaller.Forms
         private Button loadKoaloaderButton;
     }
 }
-

@@ -18,6 +18,7 @@ internal sealed partial class SelectForm
         {
             AccessibleName = "Security and privacy",
             AccessibleDescription = "Open security guidance and private vulnerability reporting links",
+            AccessibleRole = AccessibleRole.Link,
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
             AutoSize = true,
             LinkBehavior = LinkBehavior.HoverUnderline,
