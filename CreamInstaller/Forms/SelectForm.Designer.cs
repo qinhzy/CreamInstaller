@@ -213,6 +213,7 @@ namespace CreamInstaller.Forms
             // allCheckBox
             // 
             allCheckBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            allCheckBox.AccessibleName = "Select all detected content";
             allCheckBox.AutoSize = true;
             allCheckBox.Checked = true;
             allCheckBox.CheckState = CheckState.Checked;
@@ -223,6 +224,7 @@ namespace CreamInstaller.Forms
             allCheckBox.Size = new System.Drawing.Size(40, 19);
             allCheckBox.TabIndex = 4;
             allCheckBox.Text = "All";
+            allCheckBox.ThreeState = true;
             allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
             // 
             // progressBar

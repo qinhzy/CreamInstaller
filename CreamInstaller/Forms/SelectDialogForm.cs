@@ -30,9 +30,7 @@ internal sealed partial class SelectDialogForm : CustomForm
         }
         if (selected.Count < 1)
             OnLoad(null, null);
-        allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
-        allCheckBox.Checked = selectionTreeView.Nodes.Cast<TreeNode>().All(n => n.Checked);
-        allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
+        UpdateAllCheckBoxState();
         allCheckBox.Enabled = true;
         acceptButton.Enabled = selected.Count > 0;
         saveButton.Enabled = acceptButton.Enabled;
@@ -54,13 +52,29 @@ internal sealed partial class SelectDialogForm : CustomForm
     {
         string id = node.Name;
         Platform platform = (Platform)node.Tag;
+        _ = selected.RemoveAll(s => s.platform == platform && s.id == id);
         if (node.Checked)
             selected.Add((platform, id, node.Text));
-        else
-            _ = selected.RemoveAll(s => s.platform == platform && s.id == id);
+        UpdateAllCheckBoxState();
+    }
+
+    private void UpdateAllCheckBoxState()
+    {
+        List<TreeNode> nodes = selectionTreeView.Nodes.Cast<TreeNode>().ToList();
+        int checkedCount = nodes.Count(node => node.Checked);
+        CheckState state = checkedCount == 0
+            ? CheckState.Unchecked
+            : checkedCount == nodes.Count
+                ? CheckState.Checked
+                : CheckState.Indeterminate;
         allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
-        allCheckBox.Checked = selectionTreeView.Nodes.Cast<TreeNode>().All(n => n.Checked);
+        allCheckBox.CheckState = state;
         allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
+        allCheckBox.AccessibleDescription = state == CheckState.Indeterminate
+            ? "Some choices are selected. Activate to select everything."
+            : state == CheckState.Checked
+                ? "All choices are selected. Activate to clear everything."
+                : "No choices are selected. Activate to select everything.";
     }
 
     private void OnResize(object s, EventArgs e)
@@ -77,9 +91,7 @@ internal sealed partial class SelectDialogForm : CustomForm
             node.Checked = shouldCheck;
             OnTreeNodeChecked(node);
         }
-        allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
-        allCheckBox.Checked = shouldCheck;
-        allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
+        UpdateAllCheckBoxState();
     }
 
     private void OnLoad(object sender, EventArgs e)

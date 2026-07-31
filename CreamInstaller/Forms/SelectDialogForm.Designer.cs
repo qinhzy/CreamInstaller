@@ -95,6 +95,7 @@ namespace CreamInstaller.Forms
             // allCheckBox
             // 
             allCheckBox.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            allCheckBox.AccessibleName = "Select all choices";
             allCheckBox.AutoSize = true;
             allCheckBox.Location = new System.Drawing.Point(2, 0);
             allCheckBox.Margin = new Padding(2, 0, 0, 0);
@@ -102,6 +103,7 @@ namespace CreamInstaller.Forms
             allCheckBox.Size = new System.Drawing.Size(40, 19);
             allCheckBox.TabIndex = 1;
             allCheckBox.Text = "All";
+            allCheckBox.ThreeState = true;
             allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
             // 
             // sortCheckBox
