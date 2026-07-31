@@ -44,6 +44,9 @@ namespace CreamInstaller.Forms
             saveKoaloaderButton = new Button();
             loadKoaloaderButton = new Button();
             selectionTreeView = new CustomTreeView();
+            headerTitleLabel = new Label();
+            headerSubtitleLabel = new Label();
+            headerDivider = new Panel();
             programsGroupBox.SuspendLayout();
             koaloaderFlowPanel.SuspendLayout();
             blockedGamesFlowPanel.SuspendLayout();
@@ -56,7 +59,7 @@ namespace CreamInstaller.Forms
             installButton.AutoSize = true;
             installButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             installButton.Enabled = false;
-            installButton.Location = new System.Drawing.Point(427, 326);
+            installButton.Location = new System.Drawing.Point(427, 388);
             installButton.Name = "installButton";
             installButton.Padding = new Padding(12, 0, 12, 0);
             installButton.Size = new System.Drawing.Size(145, 25);
@@ -70,7 +73,9 @@ namespace CreamInstaller.Forms
             cancelButton.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             cancelButton.AutoSize = true;
             cancelButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            cancelButton.Location = new System.Drawing.Point(12, 326);
+            cancelButton.AccessibleDescription = "Cancel the current scan or setup operation";
+            cancelButton.CausesValidation = false;
+            cancelButton.Location = new System.Drawing.Point(12, 388);
             cancelButton.Name = "cancelButton";
             cancelButton.Padding = new Padding(12, 0, 12, 0);
             cancelButton.Size = new System.Drawing.Size(77, 25);
@@ -82,17 +87,18 @@ namespace CreamInstaller.Forms
             // programsGroupBox
             // 
             programsGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            programsGroupBox.AccessibleDescription = "Detected programs, games, and available content";
             programsGroupBox.Controls.Add(koaloaderFlowPanel);
             programsGroupBox.Controls.Add(noneFoundLabel);
             programsGroupBox.Controls.Add(blockedGamesFlowPanel);
             programsGroupBox.Controls.Add(allCheckBoxLayoutPanel);
             programsGroupBox.Controls.Add(selectionTreeView);
-            programsGroupBox.Location = new System.Drawing.Point(12, 12);
+            programsGroupBox.Location = new System.Drawing.Point(12, 74);
             programsGroupBox.Name = "programsGroupBox";
             programsGroupBox.Size = new System.Drawing.Size(560, 209);
             programsGroupBox.TabIndex = 8;
             programsGroupBox.TabStop = false;
-            programsGroupBox.Text = "Programs / Games";
+            programsGroupBox.Text = "Detected content";
             // 
             // koaloaderFlowPanel
             // 
@@ -127,9 +133,10 @@ namespace CreamInstaller.Forms
             noneFoundLabel.Dock = DockStyle.Fill;
             noneFoundLabel.Location = new System.Drawing.Point(3, 19);
             noneFoundLabel.Name = "noneFoundLabel";
+            noneFoundLabel.Padding = new Padding(32);
             noneFoundLabel.Size = new System.Drawing.Size(554, 187);
             noneFoundLabel.TabIndex = 1002;
-            noneFoundLabel.Text = "No applicable programs nor games were found on your computer!";
+            noneFoundLabel.Text = "No supported programs or games were detected.\r\n\r\nInstall or launch a supported client, then select Rescan.";
             noneFoundLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             noneFoundLabel.Visible = false;
             // 
@@ -221,7 +228,9 @@ namespace CreamInstaller.Forms
             // progressBar
             // 
             progressBar.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            progressBar.Location = new System.Drawing.Point(12, 266);
+            progressBar.AccessibleDescription = "Progress for the current scan or setup operation";
+            progressBar.AccessibleName = "Current operation progress";
+            progressBar.Location = new System.Drawing.Point(12, 328);
             progressBar.Name = "progressBar";
             progressBar.Size = new System.Drawing.Size(560, 23);
             progressBar.TabIndex = 9;
@@ -229,11 +238,13 @@ namespace CreamInstaller.Forms
             // progressLabel
             // 
             progressLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            progressLabel.Location = new System.Drawing.Point(12, 224);
+            progressLabel.AccessibleName = "Current operation";
+            progressLabel.AutoEllipsis = true;
+            progressLabel.Location = new System.Drawing.Point(12, 286);
             progressLabel.Name = "progressLabel";
             progressLabel.Size = new System.Drawing.Size(560, 15);
             progressLabel.TabIndex = 10;
-            progressLabel.Text = "Gathering and caching your applicable games and their DLCs . . . 0%";
+            progressLabel.Text = "Scanning selected games and loading available content… 0%";
             // 
             // scanButton
             // 
@@ -241,7 +252,7 @@ namespace CreamInstaller.Forms
             scanButton.AutoSize = true;
             scanButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             scanButton.Enabled = false;
-            scanButton.Location = new System.Drawing.Point(250, 326);
+            scanButton.Location = new System.Drawing.Point(250, 388);
             scanButton.Name = "scanButton";
             scanButton.Padding = new Padding(12, 0, 12, 0);
             scanButton.Size = new System.Drawing.Size(78, 25);
@@ -256,7 +267,7 @@ namespace CreamInstaller.Forms
             uninstallButton.AutoSize = true;
             uninstallButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             uninstallButton.Enabled = false;
-            uninstallButton.Location = new System.Drawing.Point(334, 326);
+            uninstallButton.Location = new System.Drawing.Point(334, 388);
             uninstallButton.Name = "uninstallButton";
             uninstallButton.Padding = new Padding(12, 0, 12, 0);
             uninstallButton.Size = new System.Drawing.Size(87, 25);
@@ -268,8 +279,10 @@ namespace CreamInstaller.Forms
             // progressLabelGames
             // 
             progressLabelGames.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressLabelGames.AccessibleName = "Games remaining";
+            progressLabelGames.AutoEllipsis = true;
             progressLabelGames.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            progressLabelGames.Location = new System.Drawing.Point(12, 239);
+            progressLabelGames.Location = new System.Drawing.Point(12, 301);
             progressLabelGames.Name = "progressLabelGames";
             progressLabelGames.Size = new System.Drawing.Size(560, 12);
             progressLabelGames.TabIndex = 11;
@@ -278,8 +291,10 @@ namespace CreamInstaller.Forms
             // progressLabelDLCs
             // 
             progressLabelDLCs.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            progressLabelDLCs.AccessibleName = "DLC items remaining";
+            progressLabelDLCs.AutoEllipsis = true;
             progressLabelDLCs.Font = new System.Drawing.Font("Segoe UI", 7F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
-            progressLabelDLCs.Location = new System.Drawing.Point(12, 251);
+            progressLabelDLCs.Location = new System.Drawing.Point(12, 313);
             progressLabelDLCs.Name = "progressLabelDLCs";
             progressLabelDLCs.Size = new System.Drawing.Size(560, 12);
             progressLabelDLCs.TabIndex = 12;
@@ -289,7 +304,7 @@ namespace CreamInstaller.Forms
             // 
             sortCheckBox.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
             sortCheckBox.AutoSize = true;
-            sortCheckBox.Location = new System.Drawing.Point(125, 330);
+            sortCheckBox.Location = new System.Drawing.Point(125, 392);
             sortCheckBox.Margin = new Padding(3, 0, 0, 0);
             sortCheckBox.Name = "sortCheckBox";
             sortCheckBox.Size = new System.Drawing.Size(98, 19);
@@ -303,7 +318,7 @@ namespace CreamInstaller.Forms
             saveButton.AutoSize = true;
             saveButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             saveButton.Enabled = false;
-            saveButton.Location = new System.Drawing.Point(432, 295);
+            saveButton.Location = new System.Drawing.Point(432, 357);
             saveButton.Name = "saveButton";
             saveButton.Size = new System.Drawing.Size(66, 25);
             saveButton.TabIndex = 10006;
@@ -317,7 +332,7 @@ namespace CreamInstaller.Forms
             loadButton.AutoSize = true;
             loadButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             loadButton.Enabled = false;
-            loadButton.Location = new System.Drawing.Point(504, 295);
+            loadButton.Location = new System.Drawing.Point(504, 357);
             loadButton.Name = "loadButton";
             loadButton.Size = new System.Drawing.Size(68, 25);
             loadButton.TabIndex = 10005;
@@ -331,7 +346,7 @@ namespace CreamInstaller.Forms
             resetKoaloaderButton.AutoSize = true;
             resetKoaloaderButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             resetKoaloaderButton.Enabled = false;
-            resetKoaloaderButton.Location = new System.Drawing.Point(12, 295);
+            resetKoaloaderButton.Location = new System.Drawing.Point(12, 357);
             resetKoaloaderButton.Name = "resetKoaloaderButton";
             resetKoaloaderButton.Size = new System.Drawing.Size(101, 25);
             resetKoaloaderButton.TabIndex = 10010;
@@ -345,7 +360,7 @@ namespace CreamInstaller.Forms
             resetButton.AutoSize = true;
             resetButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             resetButton.Enabled = false;
-            resetButton.Location = new System.Drawing.Point(356, 295);
+            resetButton.Location = new System.Drawing.Point(356, 357);
             resetButton.Name = "resetButton";
             resetButton.Size = new System.Drawing.Size(70, 25);
             resetButton.TabIndex = 10007;
@@ -359,7 +374,7 @@ namespace CreamInstaller.Forms
             saveKoaloaderButton.AutoSize = true;
             saveKoaloaderButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             saveKoaloaderButton.Enabled = false;
-            saveKoaloaderButton.Location = new System.Drawing.Point(119, 295);
+            saveKoaloaderButton.Location = new System.Drawing.Point(119, 357);
             saveKoaloaderButton.Name = "saveKoaloaderButton";
             saveKoaloaderButton.Size = new System.Drawing.Size(97, 25);
             saveKoaloaderButton.TabIndex = 10009;
@@ -373,13 +388,43 @@ namespace CreamInstaller.Forms
             loadKoaloaderButton.AutoSize = true;
             loadKoaloaderButton.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             loadKoaloaderButton.Enabled = false;
-            loadKoaloaderButton.Location = new System.Drawing.Point(222, 295);
+            loadKoaloaderButton.Location = new System.Drawing.Point(222, 357);
             loadKoaloaderButton.Name = "loadKoaloaderButton";
             loadKoaloaderButton.Size = new System.Drawing.Size(99, 25);
             loadKoaloaderButton.TabIndex = 10008;
             loadKoaloaderButton.Text = "Load Koaloader";
             loadKoaloaderButton.UseVisualStyleBackColor = true;
             loadKoaloaderButton.Click += OnLoadKoaloader;
+            //
+            // headerTitleLabel
+            //
+            headerTitleLabel.AutoSize = true;
+            headerTitleLabel.Font = new System.Drawing.Font("Segoe UI", 13F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+            headerTitleLabel.Location = new System.Drawing.Point(12, 10);
+            headerTitleLabel.Name = "headerTitleLabel";
+            headerTitleLabel.Size = new System.Drawing.Size(205, 25);
+            headerTitleLabel.TabIndex = 13;
+            headerTitleLabel.Text = "Review detected content";
+            //
+            // headerSubtitleLabel
+            //
+            headerSubtitleLabel.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            headerSubtitleLabel.AutoEllipsis = true;
+            headerSubtitleLabel.ForeColor = System.Drawing.SystemColors.GrayText;
+            headerSubtitleLabel.Location = new System.Drawing.Point(14, 39);
+            headerSubtitleLabel.Name = "headerSubtitleLabel";
+            headerSubtitleLabel.Size = new System.Drawing.Size(558, 18);
+            headerSubtitleLabel.TabIndex = 14;
+            headerSubtitleLabel.Text = "Choose items to include, review the selection, then continue when ready.";
+            //
+            // headerDivider
+            //
+            headerDivider.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            headerDivider.BackColor = System.Drawing.SystemColors.ControlDark;
+            headerDivider.Location = new System.Drawing.Point(12, 62);
+            headerDivider.Name = "headerDivider";
+            headerDivider.Size = new System.Drawing.Size(560, 1);
+            headerDivider.TabIndex = 15;
             // 
             // SelectForm
             // 
@@ -387,7 +432,11 @@ namespace CreamInstaller.Forms
             AutoScaleMode = AutoScaleMode.Font;
             AutoSize = true;
             AutoSizeMode = AutoSizeMode.GrowAndShrink;
-            ClientSize = new System.Drawing.Size(584, 361);
+            CancelButton = cancelButton;
+            ClientSize = new System.Drawing.Size(584, 423);
+            Controls.Add(headerDivider);
+            Controls.Add(headerSubtitleLabel);
+            Controls.Add(headerTitleLabel);
             Controls.Add(loadKoaloaderButton);
             Controls.Add(saveKoaloaderButton);
             Controls.Add(resetButton);
@@ -451,6 +500,8 @@ namespace CreamInstaller.Forms
         private Button resetButton;
         private Button saveKoaloaderButton;
         private Button loadKoaloaderButton;
+        private Label headerTitleLabel;
+        private Label headerSubtitleLabel;
+        private Panel headerDivider;
     }
 }
-

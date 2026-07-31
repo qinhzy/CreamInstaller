@@ -513,7 +513,8 @@ internal sealed partial class SelectForm : CustomForm
         saveKoaloaderButton.Enabled = false;
         loadKoaloaderButton.Enabled = false;
         resetKoaloaderButton.Enabled = false;
-        progressLabel.Text = "Waiting for user to select which programs/games to scan . . .";
+        headerSubtitleLabel.Text = "Scanning selected programs and games. Selection controls will unlock when ready.";
+        progressLabel.Text = "Choose the programs or games you want to scan…";
         ShowProgressBar();
         await ProgramData.Setup(this);
         bool scan = forceScan;
@@ -555,10 +556,10 @@ internal sealed partial class SelectForm : CustomForm
                         else
                             curProgress = _progress;
                         int p = Math.Max(Math.Min((int)((float)curProgress / maxProgress * 100), 100), 0);
-                        progressLabel.Text = $"Quickly gathering games for uninstallation . . . {p}%";
+                        progressLabel.Text = $"Preparing selected games for uninstall… {p}%";
                         progressBar.Value = p;
                     };
-                    progressLabel.Text = "Quickly gathering games for uninstallation . . . ";
+                    progressLabel.Text = "Preparing selected games for uninstall…";
                     foreach (Selection selection in Selection.All.Keys)
                         selection.TreeNode.Remove();
                     await GetApplicablePrograms(iProgress, true);
@@ -569,17 +570,17 @@ internal sealed partial class SelectForm : CustomForm
                 }
                 else
                     scan = selectResult == DialogResult.OK && choices is not null && choices.Count > 0;
-                const string retry = "\n\nPress the \"Rescan\" button to re-choose.";
+                const string retry = "\n\nSelect Rescan to choose again.";
                 if (scan)
                 {
                     programsToScan = choices;
-                    noneFoundLabel.Text = "None of the chosen programs nor games were applicable!" + retry;
+                    noneFoundLabel.Text = "No supported content was found in the selected programs or games." + retry;
                 }
                 else
-                    noneFoundLabel.Text = "You didn't choose any programs nor games!" + retry;
+                    noneFoundLabel.Text = "No programs or games were selected." + retry;
             }
             else
-                noneFoundLabel.Text = "No applicable programs nor games were found on your computer!";
+                noneFoundLabel.Text = "No supported programs or games were detected.\n\nInstall or launch a supported client, then select Rescan.";
         }
         if (scan)
         {
@@ -597,12 +598,12 @@ internal sealed partial class SelectForm : CustomForm
                 else
                     curProgress = _progress;
                 int p = Math.Max(Math.Min((int)((float)curProgress / maxProgress * 100), 100), 0);
-                progressLabel.Text = setup ? $"Setting up SteamCMD . . . {p}%" : $"Gathering and caching your applicable games and their DLCs . . . {p}%";
+                progressLabel.Text = setup ? $"Preparing SteamCMD… {p}%" : $"Scanning selected games and loading available content… {p}%";
                 progressBar.Value = p;
             };
             if (SteamLibrary.InstallPath.DirectoryExists() && programsToScan is not null && programsToScan.Any(c => c.platform is Platform.Steam))
             {
-                progressLabel.Text = "Setting up SteamCMD . . . ";
+                progressLabel.Text = "Preparing SteamCMD…";
                 if (!await SteamCMD.Setup(iProgress))
                 {
                     HideProgressBar();
@@ -611,7 +612,7 @@ internal sealed partial class SelectForm : CustomForm
                 }
             }
             setup = false;
-            progressLabel.Text = "Gathering and caching your applicable games and their DLCs . . . ";
+            progressLabel.Text = "Scanning selected games and loading available content…";
             Selection.ValidateAll(programsToScan);
             foreach (Selection selection in Selection.All.Keys)
                 selection.TreeNode.Remove();
@@ -637,6 +638,7 @@ internal sealed partial class SelectForm : CustomForm
         scanButton.Enabled = true;
         blockedGamesCheckBox.Enabled = true;
         blockProtectedHelpButton.Enabled = true;
+        UpdateSelectionSummary();
     }
 
     private void OnTreeViewNodeCheckedChanged(object sender, TreeViewEventArgs e)
@@ -655,6 +657,21 @@ internal sealed partial class SelectForm : CustomForm
         uninstallButton.Enabled = installButton.Enabled;
         saveButton.Enabled = CanSaveDlc();
         resetButton.Enabled = CanResetDlc();
+        UpdateSelectionSummary();
+    }
+
+    private void UpdateSelectionSummary()
+    {
+        int detectedCount = Selection.All.Count;
+        if (detectedCount == 0)
+        {
+            headerSubtitleLabel.Text = "No supported content is ready. Select Rescan to choose another set.";
+            return;
+        }
+        int selectedCount = Selection.AllEnabled.Count();
+        string contentLabel = detectedCount == 1 ? "program or game" : "programs or games";
+        headerSubtitleLabel.Text = $"{detectedCount} {contentLabel} detected"
+                                 + $" · {selectedCount} selected. Review before continuing.";
     }
 
     private static void SyncNodeAncestors(TreeNode node)
@@ -922,7 +939,7 @@ internal sealed partial class SelectForm : CustomForm
 
     private void OnCancel(object sender, EventArgs e)
     {
-        progressLabel.Text = "Cancelling . . . ";
+        progressLabel.Text = "Cancelling…";
         Program.Cleanup();
     }
 
