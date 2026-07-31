@@ -87,6 +87,7 @@ namespace CreamInstaller.Forms
             // programsGroupBox
             // 
             programsGroupBox.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            programsGroupBox.AccessibleDescription = "Detected programs, games, and available content";
             programsGroupBox.Controls.Add(koaloaderFlowPanel);
             programsGroupBox.Controls.Add(noneFoundLabel);
             programsGroupBox.Controls.Add(blockedGamesFlowPanel);
@@ -97,7 +98,7 @@ namespace CreamInstaller.Forms
             programsGroupBox.Size = new System.Drawing.Size(560, 209);
             programsGroupBox.TabIndex = 8;
             programsGroupBox.TabStop = false;
-            programsGroupBox.Text = "Programs / Games";
+            programsGroupBox.Text = "Detected content";
             // 
             // koaloaderFlowPanel
             // 
@@ -132,9 +133,10 @@ namespace CreamInstaller.Forms
             noneFoundLabel.Dock = DockStyle.Fill;
             noneFoundLabel.Location = new System.Drawing.Point(3, 19);
             noneFoundLabel.Name = "noneFoundLabel";
+            noneFoundLabel.Padding = new Padding(32);
             noneFoundLabel.Size = new System.Drawing.Size(554, 187);
             noneFoundLabel.TabIndex = 1002;
-            noneFoundLabel.Text = "No applicable programs nor games were found on your computer!";
+            noneFoundLabel.Text = "No supported programs or games were detected.\r\n\r\nInstall or launch a supported client, then select Rescan.";
             noneFoundLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             noneFoundLabel.Visible = false;
             // 
@@ -242,7 +244,7 @@ namespace CreamInstaller.Forms
             progressLabel.Name = "progressLabel";
             progressLabel.Size = new System.Drawing.Size(560, 15);
             progressLabel.TabIndex = 10;
-            progressLabel.Text = "Gathering and caching your applicable games and their DLCs . . . 0%";
+            progressLabel.Text = "Scanning selected games and loading available content… 0%";
             // 
             // scanButton
             // 
@@ -413,7 +415,7 @@ namespace CreamInstaller.Forms
             headerSubtitleLabel.Name = "headerSubtitleLabel";
             headerSubtitleLabel.Size = new System.Drawing.Size(558, 18);
             headerSubtitleLabel.TabIndex = 14;
-            headerSubtitleLabel.Text = "Choose what to scan, then review the detected items before applying changes.";
+            headerSubtitleLabel.Text = "Choose items to include, review the selection, then continue when ready.";
             //
             // headerDivider
             //
