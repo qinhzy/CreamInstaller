@@ -650,9 +650,6 @@ internal sealed partial class SelectForm : CustomForm
             return;
         SyncNodeAncestors(node);
         SyncNodeDescendants(node);
-        allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
-        allCheckBox.Checked = EnumerateTreeNodes(selectionTreeView.Nodes).All(node => node.Text == "Unknown" || node.Checked);
-        allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
         installButton.Enabled = Selection.AllEnabled.Any();
         uninstallButton.Enabled = installButton.Enabled;
         saveButton.Enabled = CanSaveDlc();
@@ -662,16 +659,40 @@ internal sealed partial class SelectForm : CustomForm
 
     private void UpdateSelectionSummary()
     {
+        UpdateAllCheckBoxState();
         int detectedCount = Selection.All.Count;
         if (detectedCount == 0)
         {
             headerSubtitleLabel.Text = "No supported content is ready. Select Rescan to choose another set.";
+            selectionTreeView.AccessibleDescription = headerSubtitleLabel.Text;
             return;
         }
         int selectedCount = Selection.AllEnabled.Count();
         string contentLabel = detectedCount == 1 ? "program or game" : "programs or games";
         headerSubtitleLabel.Text = $"{detectedCount} {contentLabel} detected"
                                  + $" · {selectedCount} selected. Review before continuing.";
+        selectionTreeView.AccessibleDescription = headerSubtitleLabel.Text;
+    }
+
+    private void UpdateAllCheckBoxState()
+    {
+        List<TreeNode> nodes = EnumerateTreeNodes(selectionTreeView.Nodes)
+            .Where(node => node.Text != "Unknown")
+            .ToList();
+        int checkedCount = nodes.Count(node => node.Checked);
+        CheckState state = checkedCount == 0
+            ? CheckState.Unchecked
+            : checkedCount == nodes.Count
+                ? CheckState.Checked
+                : CheckState.Indeterminate;
+        allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
+        allCheckBox.CheckState = state;
+        allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
+        allCheckBox.AccessibleDescription = state == CheckState.Indeterminate
+            ? "Some detected content is selected. Activate to select everything."
+            : state == CheckState.Checked
+                ? "All detected content is selected. Activate to clear everything."
+                : "No detected content is selected. Activate to select everything.";
     }
 
     private static void SyncNodeAncestors(TreeNode node)
@@ -951,9 +972,7 @@ internal sealed partial class SelectForm : CustomForm
             selection.Enabled = shouldEnable;
             OnTreeViewNodeCheckedChanged(null, new(selection.TreeNode, TreeViewAction.ByMouse));
         }
-        allCheckBox.CheckedChanged -= OnAllCheckBoxChanged;
-        allCheckBox.Checked = shouldEnable;
-        allCheckBox.CheckedChanged += OnAllCheckBoxChanged;
+        UpdateAllCheckBoxState();
     }
 
     private void OnKoaloaderAllCheckBoxChanged(object sender, EventArgs e)
