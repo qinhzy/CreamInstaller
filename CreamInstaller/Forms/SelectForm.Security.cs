@@ -14,26 +14,30 @@ internal sealed partial class SelectForm
         if (securityLinkLabel is not null)
             return;
 
-        sortCheckBox.Location = new(148, 330);
         securityLinkLabel = new()
         {
+            AccessibleName = "Security and privacy",
             AccessibleDescription = "Open security guidance and private vulnerability reporting links",
             Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
             AutoSize = true,
             LinkBehavior = LinkBehavior.HoverUnderline,
-            Location = new(95, 332),
             Name = "securityLinkLabel",
-            TabIndex = 10003,
+            TabIndex = 9999,
             TabStop = true,
             Text = "Security"
         };
         securityLinkLabel.LinkClicked += OnSecurityLinkClicked;
         Controls.Add(securityLinkLabel);
+        int linkTop = sortCheckBox.Top
+            + Math.Max(0, (sortCheckBox.Height - securityLinkLabel.PreferredHeight) / 2);
+        securityLinkLabel.Location = new(cancelButton.Right + 12, linkTop);
+        sortCheckBox.Left = securityLinkLabel.Right + 8;
         securityLinkLabel.BringToFront();
     }
 
     private void OnSecurityLinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
     {
+        securityLinkLabel.LinkVisited = true;
         string repository = $"https://github.com/{Program.RepositoryOwner}/{Program.RepositoryName}";
         using DialogForm form = new(this);
         form.HelpButton = false;
