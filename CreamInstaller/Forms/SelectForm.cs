@@ -513,6 +513,7 @@ internal sealed partial class SelectForm : CustomForm
         saveKoaloaderButton.Enabled = false;
         loadKoaloaderButton.Enabled = false;
         resetKoaloaderButton.Enabled = false;
+        headerSubtitleLabel.Text = "Scanning selected programs and games. Selection controls will unlock when ready.";
         progressLabel.Text = "Choose the programs or games you want to scan…";
         ShowProgressBar();
         await ProgramData.Setup(this);
@@ -637,6 +638,7 @@ internal sealed partial class SelectForm : CustomForm
         scanButton.Enabled = true;
         blockedGamesCheckBox.Enabled = true;
         blockProtectedHelpButton.Enabled = true;
+        UpdateSelectionSummary();
     }
 
     private void OnTreeViewNodeCheckedChanged(object sender, TreeViewEventArgs e)
@@ -655,6 +657,21 @@ internal sealed partial class SelectForm : CustomForm
         uninstallButton.Enabled = installButton.Enabled;
         saveButton.Enabled = CanSaveDlc();
         resetButton.Enabled = CanResetDlc();
+        UpdateSelectionSummary();
+    }
+
+    private void UpdateSelectionSummary()
+    {
+        int detectedCount = Selection.All.Count;
+        if (detectedCount == 0)
+        {
+            headerSubtitleLabel.Text = "No supported content is ready. Select Rescan to choose another set.";
+            return;
+        }
+        int selectedCount = Selection.AllEnabled.Count();
+        string contentLabel = detectedCount == 1 ? "program or game" : "programs or games";
+        headerSubtitleLabel.Text = $"{detectedCount} {contentLabel} detected"
+                                 + $" · {selectedCount} selected. Review before continuing.";
     }
 
     private static void SyncNodeAncestors(TreeNode node)
