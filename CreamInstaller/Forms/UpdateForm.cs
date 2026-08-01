@@ -147,10 +147,15 @@ internal sealed partial class UpdateForm : CustomForm
             using HttpResponseMessage response = await HttpClientManager.HttpClient.GetAsync(latestRelease.Asset.BrowserDownloadUrl,
                 HttpCompletionOption.ResponseHeadersRead, cancellation.Token);
             _ = response.EnsureSuccessStatusCode();
+            long expectedBytes = latestRelease.Asset.Size;
+            if (expectedBytes <= 0)
+                throw new InvalidDataException("The release asset did not include a valid download size.");
+            if (response.Content.Headers.ContentLength is { } contentLength && contentLength != expectedBytes)
+                throw new InvalidDataException(
+                    $"The update download size ({contentLength} bytes) does not match the release metadata ({expectedBytes} bytes).");
             if (cancellation is null || Program.Canceled)
                 throw new TaskCanceledException();
             await using Stream download = await response.Content.ReadAsStreamAsync(cancellation.Token);
-            double bytes = latestRelease.Asset.Size;
             byte[] buffer = new byte[16384];
             long bytesRead = 0;
             int newBytes;
@@ -159,14 +164,20 @@ internal sealed partial class UpdateForm : CustomForm
             {
                 if (cancellation is null || Program.Canceled)
                     throw new TaskCanceledException();
+                if (bytesRead + newBytes > expectedBytes)
+                    throw new InvalidDataException("The update download exceeded its declared release size.");
                 await update.WriteAsync(buffer.AsMemory(0, newBytes), cancellation.Token);
                 bytesRead += newBytes;
-                int report = (int)(bytesRead / bytes * 100);
+                int report = (int)(bytesRead * 100 / expectedBytes);
                 if (report <= progressBar.Value)
                     continue;
                 iProgress.Report(report);
             }
-            iProgress.Report((int)(bytesRead / bytes * 100));
+            await update.FlushAsync(cancellation.Token);
+            if (bytesRead != expectedBytes)
+                throw new InvalidDataException(
+                    $"The update download ended early ({bytesRead} of {expectedBytes} bytes).");
+            iProgress.Report(100);
             if (cancellation is null || Program.Canceled)
                 throw new TaskCanceledException();
         }
