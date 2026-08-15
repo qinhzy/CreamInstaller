@@ -135,53 +135,32 @@ internal sealed partial class UpdateForm : CustomForm
             progressBar.Value = _progress;
         };
         progressLabel.Text = "Updating . . . ";
-        cancellation = new();
+        CancellationTokenSource updateCancellation = cancellation = new();
+        CancellationToken cancellationToken = updateCancellation.Token;
         bool success = true;
         PackagePath.DeleteFile(true);
         await using FileStream update = PackagePath.CreateFile(true);
         bool retry = true;
         try
         {
-            if (cancellation is null || Program.Canceled)
-                throw new TaskCanceledException();
+            if (Program.Canceled)
+                throw new OperationCanceledException(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             using HttpResponseMessage response = await HttpClientManager.HttpClient.GetAsync(latestRelease.Asset.BrowserDownloadUrl,
-                HttpCompletionOption.ResponseHeadersRead, cancellation.Token);
+                HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             _ = response.EnsureSuccessStatusCode();
             long expectedBytes = latestRelease.Asset.Size;
-            if (expectedBytes <= 0)
-                throw new InvalidDataException("The release asset did not include a valid download size.");
-            if (response.Content.Headers.ContentLength is { } contentLength && contentLength != expectedBytes)
-                throw new InvalidDataException(
-                    $"The update download size ({contentLength} bytes) does not match the release metadata ({expectedBytes} bytes).");
-            if (cancellation is null || Program.Canceled)
-                throw new TaskCanceledException();
-            await using Stream download = await response.Content.ReadAsStreamAsync(cancellation.Token);
-            byte[] buffer = new byte[16384];
-            long bytesRead = 0;
-            int newBytes;
-            while (cancellation is not null && !Program.Canceled
-             && (newBytes = await download.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellation.Token)) != 0)
-            {
-                if (cancellation is null || Program.Canceled)
-                    throw new TaskCanceledException();
-                if (bytesRead + newBytes > expectedBytes)
-                    throw new InvalidDataException("The update download exceeded its declared release size.");
-                await update.WriteAsync(buffer.AsMemory(0, newBytes), cancellation.Token);
-                bytesRead += newBytes;
-                int report = (int)(bytesRead * 100 / expectedBytes);
-                if (report <= progressBar.Value)
-                    continue;
-                iProgress.Report(report);
-            }
-            await update.FlushAsync(cancellation.Token);
-            if (bytesRead != expectedBytes)
-                throw new InvalidDataException(
-                    $"The update download ended early ({bytesRead} of {expectedBytes} bytes).");
-            iProgress.Report(100);
-            if (cancellation is null || Program.Canceled)
-                throw new TaskCanceledException();
+            DownloadValidator.ValidateResponseSize(expectedBytes, response.Content.Headers.ContentLength);
+            if (Program.Canceled)
+                throw new OperationCanceledException(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            await using Stream download = await response.Content.ReadAsStreamAsync(cancellationToken);
+            await DownloadValidator.CopyToAsync(download, update, expectedBytes, iProgress, cancellationToken);
+            if (Program.Canceled)
+                throw new OperationCanceledException(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             success = false;
         }
@@ -190,8 +169,12 @@ internal sealed partial class UpdateForm : CustomForm
             retry = ex.HandleException(this, Program.Name + " encountered an exception while updating");
             success = false;
         }
-        cancellation?.Dispose();
-        cancellation = null;
+        finally
+        {
+            if (ReferenceEquals(cancellation, updateCancellation))
+                cancellation = null;
+            updateCancellation.Dispose();
+        }
         await update.DisposeAsync();
         bool canContinue = success && !Program.Canceled;
         if (canContinue)
@@ -235,9 +218,9 @@ internal sealed partial class UpdateForm : CustomForm
 
     private void OnUpdateCancel(object sender, EventArgs e)
     {
-        cancellation?.Cancel();
-        cancellation?.Dispose();
+        CancellationTokenSource updateCancellation = cancellation;
         cancellation = null;
+        updateCancellation?.Cancel();
     }
 
     protected override void Dispose(bool disposing)

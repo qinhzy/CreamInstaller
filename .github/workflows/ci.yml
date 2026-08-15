@@ -11,6 +11,28 @@ permissions:
   contents: read
 
 jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Run download validation tests
+        run: dotnet run --project CreamInstaller.Tests/CreamInstaller.Tests.csproj --configuration Release
+
+      - name: Restore dependencies on a case-sensitive filesystem
+        run: dotnet restore CreamInstaller/CreamInstaller.csproj -p:EnableWindowsTargeting=true
+
+      - name: Build on a case-sensitive filesystem
+        run: dotnet build CreamInstaller/CreamInstaller.csproj --configuration Release --no-restore -p:EnableWindowsTargeting=true
+
   build:
     runs-on: windows-latest
     timeout-minutes: 15
