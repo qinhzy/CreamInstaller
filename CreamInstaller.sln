@@ -5,6 +5,8 @@ VisualStudioVersion = 17.2.32516.85
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CreamInstaller", "CreamInstaller\CreamInstaller.csproj", "{6C94C882-7168-435E-B9E3-B4B9222BBF68}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CreamInstaller.Tests", "CreamInstaller.Tests\CreamInstaller.Tests.csproj", "{BF11713F-F4BF-4876-86A7-6D802EFEC10B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -14,6 +16,10 @@ Global
 		{6C94C882-7168-435E-B9E3-B4B9222BBF68}.Debug|x64.ActiveCfg = Debug|x64
 		{6C94C882-7168-435E-B9E3-B4B9222BBF68}.Release|x64.ActiveCfg = Release|x64
 		{6C94C882-7168-435E-B9E3-B4B9222BBF68}.Release|x64.Build.0 = Release|x64
+		{BF11713F-F4BF-4876-86A7-6D802EFEC10B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BF11713F-F4BF-4876-86A7-6D802EFEC10B}.Debug|x64.Build.0 = Debug|Any CPU
+		{BF11713F-F4BF-4876-86A7-6D802EFEC10B}.Release|x64.ActiveCfg = Release|Any CPU
+		{BF11713F-F4BF-4876-86A7-6D802EFEC10B}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
